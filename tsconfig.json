@@ -1,1 +1,5 @@
-{}
+{
+  "compilerOptions": {
+    "downlevelIteration": true
+  }
+}

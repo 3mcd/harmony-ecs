@@ -1,6 +1,6 @@
-import { Archetype, Signature, makeArchetype, signatureIsSupersetOf } from "./archetype"
+import { Archetype, makeArchetype, Type, typeContains } from "./archetype"
 import { Registry } from "./registry"
-import { getSchemaId, AnySchema } from "./schema"
+import { AnySchema, getSchemaId } from "./schema"
 
 export type ArchetypeGraphNode = {
   archetype: Archetype
@@ -22,48 +22,40 @@ function makeEdges(
 }
 
 function linkNode(root: ArchetypeGraphNode, node: ArchetypeGraphNode) {
-  if (root.archetype.signature.length > node.archetype.signature.length - 1) {
+  if (root.archetype.type.length > node.archetype.type.length - 1) {
     return
   }
 
-  if (root.archetype.signature.length < node.archetype.signature.length - 1) {
+  if (root.archetype.type.length < node.archetype.type.length - 1) {
     root.rightEdges.forEach(node => linkNode(node, node))
   }
 
   if (
-    root.archetype.signature.length === 0 ||
-    signatureIsSupersetOf(root.archetype.signature, node.archetype.signature)
+    root.archetype.type.length === 0 ||
+    typeContains(root.archetype.type, node.archetype.type)
   ) {
     let i = 0
-    let length = node.archetype.signature.length
-    for (
-      ;
-      i < length && root.archetype.signature[i] === node.archetype.signature[i];
-      i++
-    );
-    makeEdges(root, node, node.archetype.signature[i])
+    let length = node.archetype.type.length
+    for (; i < length && root.archetype.type[i] === node.archetype.type[i]; i++);
+    makeEdges(root, node, node.archetype.type[i])
   }
 }
 
-function insertArchetype(signature: Signature, registry: Registry): ArchetypeGraphNode {
-  const archetype = makeArchetype(signature, registry.size)
+function insertArchetype(type: Type, registry: Registry): ArchetypeGraphNode {
+  const archetype = makeArchetype(type, registry.size)
   const node = makeArchetypeGraphNode(archetype)
   linkNode(registry.root, node)
   registry.onArchetypeCreated.dispatch(archetype)
   return node
 }
 
-export function findOrMakeArchetype(
-  root: ArchetypeGraphNode,
-  signature: Signature,
-  registry: Registry,
-) {
-  let node = root
-  for (let i = 0; i < signature.length; i++) {
-    const schema = signature[i]
+export function findOrMakeArchetype(registry: Registry, type: Type) {
+  let node = registry.root
+  for (let i = 0; i < type.length; i++) {
+    const schema = type[i]
     node =
       node.rightEdges[getSchemaId(schema)] ??
-      insertArchetype(signature.slice(0, i + 1), registry)
+      insertArchetype(type.slice(0, i + 1), registry)
   }
-  return node
+  return node.archetype
 }

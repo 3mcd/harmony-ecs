@@ -11,7 +11,7 @@ import {
 } from "./schema"
 import { InstanceOf } from "./types"
 
-export type Signature = ReadonlyArray<AnySchema>
+export type Type = ReadonlyArray<AnySchema>
 
 /**
  * an archetype table column which stores entity data in typed arrays
@@ -73,20 +73,18 @@ export type ArchetypeColumnOf<$Schema extends AnySchema> = $Schema extends Binar
 /**
  * entity-component storage
  */
-export type ArchetypeTable<$Signature extends Signature> = {
-  [K in keyof $Signature]: $Signature[K] extends AnySchema
-    ? ArchetypeColumnOf<$Signature[K]>
-    : never
+export type ArchetypeTable<$Type extends Type> = {
+  [K in keyof $Type]: $Type[K] extends AnySchema ? ArchetypeColumnOf<$Type[K]> : never
 }
 
 /**
  * a collection of entities which share components of the same type
  */
-export type Archetype<$Signature extends Signature = Signature> = {
+export type Archetype<$Type extends Type = Type> = {
   entities: Entity[]
   entityIndex: number[]
-  signature: $Signature
-  table: ArchetypeTable<$Signature>
+  type: $Type
+  table: ArchetypeTable<$Type>
 }
 
 /**
@@ -112,13 +110,13 @@ export type NativeDataOf<$Shape extends ShapeOf<NativeSchema>> = $Shape extends 
 
 /**
  * derive a tuple of component shapes by mapping the schema of an archetype
- * signature
+ * type
  */
-export type ArchetypeDataOf<$Signature extends Signature> = {
-  [K in keyof $Signature]: $Signature[K] extends BinarySchema
-    ? BinaryDataOf<ShapeOf<$Signature[K]>>
-    : $Signature[K] extends NativeSchema
-    ? NativeDataOf<ShapeOf<$Signature[K]>>
+export type ArchetypeDataOf<$Type extends Type> = {
+  [K in keyof $Type]: $Type[K] extends BinarySchema
+    ? BinaryDataOf<ShapeOf<$Type[K]>>
+    : $Type[K] extends NativeSchema
+    ? NativeDataOf<ShapeOf<$Type[K]>>
     : never
 }
 
@@ -146,36 +144,36 @@ function makeArchetypeColumn<$Schema extends AnySchema>(
   }
 }
 
-function makeArchetypeTable<$Signature extends Signature>(
-  signature: $Signature,
+function makeArchetypeTable<$Type extends Type>(
+  type: $Type,
   size: number,
-): ArchetypeTable<$Signature> {
+): ArchetypeTable<$Type> {
   // TODO(3mcd): unsure how to get TypeScript to agree with this without
   // casting to unknown
-  return signature.map(schema =>
+  return type.map(schema =>
     makeArchetypeColumn(schema, size),
-  ) as unknown as ArchetypeTable<$Signature>
+  ) as unknown as ArchetypeTable<$Type>
 }
 
-export function makeArchetype<$Signature extends Signature>(
-  signature: $Signature,
+export function makeArchetype<$Type extends Type>(
+  type: $Type,
   size: number,
-): Archetype<$Signature> {
-  assertSignatureNormalized(signature)
+): Archetype<$Type> {
+  assertTypeNormalized(type)
   const entities: Entity[] = []
   const entityIndex: number[] = []
-  const table = makeArchetypeTable(signature, size)
-  return { entities, entityIndex, signature, table }
+  const table = makeArchetypeTable(type, size)
+  return { entities, entityIndex, type, table }
 }
 
-export function insertIntoArchetype<$Signature extends Signature>(
-  archetype: Archetype<$Signature>,
+export function insertIntoArchetype<$Type extends Type>(
+  archetype: Archetype<$Type>,
   entity: Entity,
-  data: ArchetypeDataOf<$Signature>,
+  data: ArchetypeDataOf<$Type>,
 ) {
   const length = archetype.entities.length
-  for (let i = 0; i < archetype.signature.length; i++) {
-    const schema = archetype.signature[i]
+  for (let i = 0; i < archetype.type.length; i++) {
+    const schema = archetype.type[i]
     if (isBinarySchema(schema)) {
       const { shape } = schema
       if (isFormat(shape)) {
@@ -196,8 +194,8 @@ export function insertIntoArchetype<$Signature extends Signature>(
   }
 }
 
-export function removeFromArchetype<$Signature extends Signature>(
-  archetype: Archetype<$Signature>,
+export function removeFromArchetype<$Type extends Type>(
+  archetype: Archetype<$Type>,
   entity: number,
 ) {
   const length = archetype.entities.length
@@ -209,8 +207,8 @@ export function removeFromArchetype<$Signature extends Signature>(
   // TODO(3mcd): can this logic be easily consolidated?
   if (index === length - 1) {
     // entity was head
-    for (let i = 0; i < archetype.signature.length; i++) {
-      const schema = archetype.signature[i]
+    for (let i = 0; i < archetype.type.length; i++) {
+      const schema = archetype.type[i]
       const column = archetype.table[i]
       if (isBinarySchema(schema)) {
         if (isFormat(schema.shape)) {
@@ -226,8 +224,8 @@ export function removeFromArchetype<$Signature extends Signature>(
     }
   } else {
     const moved = length - 1
-    for (let i = 0; i < archetype.signature.length; i++) {
-      const schema = archetype.signature[i]
+    for (let i = 0; i < archetype.type.length; i++) {
+      const schema = archetype.type[i]
       const column = archetype.table[i]
       if (isBinarySchema(schema)) {
         if (isFormat(schema.shape)) {
@@ -250,30 +248,30 @@ export function removeFromArchetype<$Signature extends Signature>(
 
 export function grow(archetype: Archetype) {}
 
-export function normalizeSignature(signature: Signature) {
-  return Object.freeze(signature.slice().sort((a, b) => getSchemaId(a) - getSchemaId(b)))
+export function normalizeType(type: Type) {
+  return Object.freeze(type.slice().sort((a, b) => getSchemaId(a) - getSchemaId(b)))
 }
 
-export function assertSignatureNormalized(signature: Signature) {
-  for (let i = 0; i < signature.length - 1; i++) {
-    if (getSchemaId(signature[i]) > getSchemaId(signature[i + 1])) {
-      throw new TypeError("signature not normalized")
+export function assertTypeNormalized(type: Type) {
+  for (let i = 0; i < type.length - 1; i++) {
+    if (getSchemaId(type[i]) > getSchemaId(type[i + 1])) {
+      throw new TypeError("type not normalized")
     }
   }
 }
 
-export function signatureIsSupersetOf(signature: Signature, subset: Signature) {
+export function typeContains(type: Type, subset: Type) {
   let i = 0
   let j = 0
-  if (signature.length < subset.length) {
+  if (type.length < subset.length) {
     return false
   }
-  while (i < signature.length && j < subset.length) {
-    const signatureSchemaId = getSchemaId(signature[i])
+  while (i < type.length && j < subset.length) {
+    const typeSchemaId = getSchemaId(type[i])
     const subsetSchemaId = getSchemaId(subset[i])
-    if (signatureSchemaId < subsetSchemaId) {
+    if (typeSchemaId < subsetSchemaId) {
       i++
-    } else if (signatureSchemaId === subsetSchemaId) {
+    } else if (typeSchemaId === subsetSchemaId) {
       i++
       j++
     } else {
