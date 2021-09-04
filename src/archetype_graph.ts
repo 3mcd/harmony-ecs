@@ -27,12 +27,13 @@ function linkNode(root: ArchetypeGraphNode, node: ArchetypeGraphNode) {
   }
 
   if (root.archetype.type.length < node.archetype.type.length - 1) {
-    root.rightEdges.forEach(node => linkNode(node, node))
+    root.rightEdges.forEach(edge => linkNode(edge, node))
+    return
   }
 
   if (
     root.archetype.type.length === 0 ||
-    typeContains(root.archetype.type, node.archetype.type)
+    typeContains(node.archetype.type, root.archetype.type)
   ) {
     let i = 0
     let length = node.archetype.type.length
@@ -53,9 +54,7 @@ export function findOrMakeArchetype(registry: Registry, type: Type) {
   let node = registry.root
   for (let i = 0; i < type.length; i++) {
     const schema = type[i]
-    node =
-      node.rightEdges[getSchemaId(schema)] ??
-      insertArchetype(type.slice(0, i + 1), registry)
+    node = node.rightEdges.get(schema) ?? insertArchetype(type.slice(0, i + 1), registry)
   }
   return node.archetype
 }

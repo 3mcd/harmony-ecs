@@ -1,6 +1,7 @@
 import { Archetype, ArchetypeTable, Type, typeContains } from "./archetype"
 import { Entity } from "./entity"
 import { Registry } from "./registry"
+import { getSchemaId } from "./schema"
 
 export type QueryRecord<$Type extends Type> = [
   entities: ReadonlyArray<Entity>,
@@ -42,7 +43,7 @@ export function makeQuery<$Type extends Type>(
   }
 
   return {
-    [Symbol.iterator]: records[Symbol.iterator],
+    [Symbol.iterator]: () => records[Symbol.iterator](),
     dispose,
   }
 }

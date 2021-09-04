@@ -56,7 +56,7 @@ function initializeTypeData<$Type extends Type>(type: $Type): ArchetypeDataOf<$T
 export function attach<$Type extends Type>(
   registry: Registry,
   entity: Entity,
-  type: Type,
+  type: $Type,
   data?: ArchetypeDataOf<$Type>,
 ) {
   const archetype = findOrMakeArchetype(registry, type)
