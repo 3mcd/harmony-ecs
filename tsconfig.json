@@ -2,6 +2,7 @@
   "compilerOptions": {
     "composite": true,
     "downlevelIteration": true,
+    "esModuleInterop": true,
     "module": "es2020",
     "moduleResolution": "node"
   }

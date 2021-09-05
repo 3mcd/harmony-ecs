@@ -1,4 +1,1 @@
-// vite.config.js
-export default {
-  // config options
-}
+export default {}
