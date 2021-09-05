@@ -1,7 +1,6 @@
 import { Archetype, ArchetypeTable, Type, typeContains } from "./archetype"
 import { Entity } from "./entity"
 import { Registry } from "./registry"
-import { getSchemaId } from "./schema"
 
 export type QueryRecord<$Type extends Type> = [
   entities: ReadonlyArray<Entity>,
@@ -41,6 +40,8 @@ export function makeQuery<$Type extends Type>(
   function dispose() {
     unsubscribe()
   }
+
+  registry.archetypes.forEach(node => maybeRegisterArchetype(node.archetype))
 
   return {
     [Symbol.iterator]: () => records[Symbol.iterator](),

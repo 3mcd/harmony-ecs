@@ -1,6 +1,6 @@
-import { performance } from "perf_hooks"
+const performance = globalThis.performance
 
-type Perf = { executor: () => void; once: boolean }
+type Perf = { run: () => void; once: boolean }
 type PerfStats = { duration: number }
 type PerfResults = {
   id: string
@@ -9,15 +9,15 @@ type PerfResults = {
   stats: PerfStats[]
 }
 
-export function makePerf(executor: () => void, once = false): Perf {
+export function makePerf(run: () => void, once = false): Perf {
   return {
-    executor,
+    run,
     once,
   }
 }
 
-export function makePerfOnce(executor: () => void): Perf {
-  return makePerf(executor, true)
+export function makePerfOnce(run: () => void): Perf {
+  return makePerf(run, true)
 }
 
 function median<T>(arr: T[], iteratee: (element: T) => number) {
@@ -35,7 +35,7 @@ export function runPerf(perf: Perf, id: string, iterations = 100): PerfResults {
 
   for (let i = 0; i < iterations; i++) {
     const start = performance.now()
-    perf.executor()
+    perf.run()
     stats.push({ duration: performance.now() - start })
   }
 
@@ -52,22 +52,23 @@ export function runPerf(perf: Perf, id: string, iterations = 100): PerfResults {
   }
 }
 
-function pretty(x: number) {
-  return parseFloat(x.toFixed(2)).toLocaleString()
+function prettyMs(x: number) {
+  return `${parseFloat(x.toFixed(2)).toLocaleString()} ms`
+}
+
+function mapObject<$Object extends { [key: string]: unknown }, $Value>(
+  object: $Object,
+  iteratee: (value: $Object[keyof $Object], key: string) => $Value,
+): { [K in keyof $Object]: $Value } {
+  return Object.entries(object).reduce((a, [key, value]) => {
+    a[key as keyof $Object] = iteratee(value as $Object[keyof $Object], key)
+    return a
+  }, {} as { [K in keyof $Object]: $Value })
 }
 
 export function printPerfResults(results: PerfResults) {
   const { id, timing, iterations } = results
-  console.log(`${id}
- iterations ${iterations}
- timing ${
-   iterations > 1
-     ? `
-  mean   ${pretty(timing.average)}ms
-  median ${pretty(timing.median)}ms
-  min    ${pretty(timing.min)}ms
-  max    ${pretty(timing.max)}ms
- `
-     : `${pretty(timing.average)}ms`
- }`)
+  console.log(id)
+  console.log(`iterations ${iterations}`)
+  console.table(mapObject(timing, prettyMs))
 }

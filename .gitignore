@@ -1,1 +1,4 @@
 node_modules
+tsconfig.tsbuildinfo
+dist
+.pnpm-debug.log

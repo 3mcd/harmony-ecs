@@ -49,7 +49,7 @@ function initializeSchema<$Schema extends AnySchema>(schema: $Schema) {
     ? initializeBinaryShape(schema.shape)
     : initializeNativeShape(schema.shape)
 }
-function initializeTypeData<$Type extends Type>(type: $Type): ArchetypeDataOf<$Type> {
+function initializeType<$Type extends Type>(type: $Type): ArchetypeDataOf<$Type> {
   return type.map(initializeSchema) as unknown as ArchetypeDataOf<$Type>
 }
 
@@ -60,6 +60,6 @@ export function attach<$Type extends Type>(
   data?: ArchetypeDataOf<$Type>,
 ) {
   const archetype = findOrMakeArchetype(registry, type)
-  insertIntoArchetype(archetype, entity, data ?? initializeTypeData(type))
+  insertIntoArchetype(archetype, entity, data ?? initializeType(type))
 }
 export function detach(registry: Registry, entity: Entity, type: Type) {}

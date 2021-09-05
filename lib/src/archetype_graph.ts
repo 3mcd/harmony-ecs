@@ -1,6 +1,6 @@
-import { Archetype, makeArchetype, Type, typeContains } from "./archetype"
+import { Archetype, makeArchetype, makeTypeHash, Type, typeContains } from "./archetype"
 import { Registry } from "./registry"
-import { AnySchema, getSchemaId } from "./schema"
+import { AnySchema } from "./schema"
 
 export type ArchetypeGraphNode = {
   archetype: Archetype
@@ -47,6 +47,7 @@ function insertArchetype(type: Type, registry: Registry): ArchetypeGraphNode {
   const node = makeArchetypeGraphNode(archetype)
   linkNode(registry.root, node)
   registry.onArchetypeCreated.dispatch(archetype)
+  registry.archetypes.set(makeTypeHash(archetype.type), node)
   return node
 }
 

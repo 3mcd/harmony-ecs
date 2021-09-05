@@ -1,14 +1,12 @@
-import { attach } from "../../src/entity"
-import { makeQuery } from "../../src/query"
-import { makeRegistry } from "../../src/registry"
+import { attach, makeQuery, makeRegistry } from "../../../lib/dist"
 import { makePerf, makePerfOnce } from "../perf"
 import { Body } from "./schema"
 
-const registry = makeRegistry(10_000_000)
+const registry = makeRegistry(5_000_000)
 const bodies = makeQuery(registry, Body)
 
 export const insert = makePerfOnce(() => {
-  for (let i = 0; i < 10_000_000; i++) {
+  for (let i = 0; i < 5_000_000; i++) {
     attach(registry, i, Body, [
       { x: 1, y: 1, z: 1 },
       { x: 1, y: 1, z: 1 },

@@ -1,13 +1,13 @@
 export type TypedArray =
-  | Int8Array
-  | Uint8Array
-  | Int16Array
-  | Uint16Array
-  | Int32Array
-  | Uint32Array
-  | Uint8ClampedArray
   | Float32Array
   | Float64Array
+  | Int8Array
+  | Int16Array
+  | Int32Array
+  | Uint8Array
+  | Uint8ClampedArray
+  | Uint16Array
+  | Uint32Array
 
 export type TypedArrayConstructor = {
   new (length: number | ArrayBufferLike): TypedArray

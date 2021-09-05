@@ -34,10 +34,6 @@ type BinaryColumnOf<$Shape extends ShapeOf<BinarySchema>> = $Shape extends Forma
         : never
     }
 
-type AnyArchetypeColumn =
-  | BinaryColumnOf<ShapeOf<BinarySchema>>
-  | NativeColumnOf<ShapeOf<NativeSchema>>
-
 /**
  * an archetype table column which stores entity data in arrays of built-in
  * types (i.e. objects and IEEE 754 float64)
@@ -120,6 +116,8 @@ export type ArchetypeDataOf<$Type extends Type> = {
     : never
 }
 
+const ArrayBufferConstructor = globalThis.SharedArrayBuffer ?? globalThis.ArrayBuffer
+
 function makeArchetypeColumn<$Schema extends AnySchema>(
   schema: $Schema,
   size: number,
@@ -127,13 +125,17 @@ function makeArchetypeColumn<$Schema extends AnySchema>(
   if (isBinarySchema(schema)) {
     if (isFormat(schema.shape)) {
       // binary & simple
-      const buffer = new SharedArrayBuffer(size * schema.shape.binary.BYTES_PER_ELEMENT)
+      const buffer = new ArrayBufferConstructor(
+        size * schema.shape.binary.BYTES_PER_ELEMENT,
+      )
       return new schema.shape.binary(buffer) as ArchetypeColumnOf<$Schema>
     } else {
       // binary & complex
       // map each member node to a typed array
       return Object.entries(schema.shape).reduce((a, [memberName, memberNode]) => {
-        const buffer = new SharedArrayBuffer(size * memberNode.binary.BYTES_PER_ELEMENT)
+        const buffer = new ArrayBufferConstructor(
+          size * memberNode.binary.BYTES_PER_ELEMENT,
+        )
         a[memberName] = new memberNode.binary(buffer)
         return a
       }, {}) as ArchetypeColumnOf<$Schema>
@@ -279,4 +281,13 @@ export function typeContains(type: Type, subset: Type) {
     }
   }
   return j === subset.length
+}
+
+export function makeTypeHash(type: Type) {
+  let buckets = 97
+  let hash = type.length % buckets
+  for (let i = 0; i < type.length; i++) {
+    hash = (hash + getSchemaId(type[i])) % buckets
+  }
+  return hash
 }

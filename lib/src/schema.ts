@@ -1,17 +1,23 @@
 import {
   internal$javelinFormat,
   internalReserveSchemaId,
-  internalSchemaIndex,
+  internalSchemaIndex
 } from "./internal"
 import { TypedArrayConstructor } from "./types"
 
 // types
 export enum FormatKind {
+  Uint8,
+  Uint16,
+  Uint32,
+  Int8,
+  Int16,
+  Int32,
   Float32,
   Float64,
 }
 export type Format = {
-  [internal$javelinFormat]: FormatKind
+  kind: FormatKind
   binary: TypedArrayConstructor
 }
 
@@ -31,16 +37,36 @@ export type NativeSchema = {
 export type AnySchema = BinarySchema | NativeSchema
 export type ShapeOf<$Schema extends AnySchema> = $Schema["shape"]
 
+function makeFormat<$Kind extends FormatKind, $Binary extends TypedArrayConstructor>(
+  kind: $Kind,
+  binary: $Binary,
+) {
+  return {
+    [internal$javelinFormat]: true,
+    kind,
+    binary,
+  } as { kind: $Kind; binary: $Binary }
+}
+
 // formats
-const float32 = {
-  [internal$javelinFormat]: FormatKind.Float32 as const,
-  binary: Float32Array,
+const float32 = makeFormat(FormatKind.Float32, Float32Array)
+const float64 = makeFormat(FormatKind.Float64, Float64Array)
+const uint8 = makeFormat(FormatKind.Uint8, Uint8Array)
+const uint16 = makeFormat(FormatKind.Uint16, Uint16Array)
+const uint32 = makeFormat(FormatKind.Uint32, Uint32Array)
+const int8 = makeFormat(FormatKind.Int8, Int8Array)
+const int16 = makeFormat(FormatKind.Int16, Int16Array)
+const int32 = makeFormat(FormatKind.Int32, Int32Array)
+export const formats = {
+  float32,
+  float64,
+  uint8,
+  uint16,
+  uint32,
+  int8,
+  int16,
+  int32,
 }
-const float64 = {
-  [internal$javelinFormat]: FormatKind.Float64 as const,
-  binary: Float64Array,
-}
-export const formats = { float32, float64 }
 
 // helpers
 export function makeBinarySchema<$Shape extends BinarySchema["shape"]>(
