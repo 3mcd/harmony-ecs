@@ -1,5 +1,5 @@
 import {
-  internal$javelinFormat,
+  internal$harmonyFormat,
   internalReserveSchemaId,
   internalSchemaIndex
 } from "./internal"
@@ -42,7 +42,7 @@ function makeFormat<$Kind extends FormatKind, $Binary extends TypedArrayConstruc
   binary: $Binary,
 ) {
   return {
-    [internal$javelinFormat]: true,
+    [internal$harmonyFormat]: true,
     kind,
     binary,
   } as { kind: $Kind; binary: $Binary }
@@ -95,7 +95,7 @@ export function getSchemaId(schema: AnySchema) {
 }
 
 export function isFormat(object: object): object is Format {
-  return internal$javelinFormat in object
+  return internal$harmonyFormat in object
 }
 
 export function isBinarySchema(schema: AnySchema): schema is BinarySchema {

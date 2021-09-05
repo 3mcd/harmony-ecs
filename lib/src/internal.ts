@@ -19,4 +19,4 @@ export function internalReserveSchemaId(id?: number) {
 }
 
 // symbols
-export const internal$javelinFormat = Symbol("javelin_schema_kind")
+export const internal$harmonyFormat = Symbol("harmony_schema_kind")
