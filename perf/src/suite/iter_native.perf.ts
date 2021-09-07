@@ -1,13 +1,16 @@
-import { attach, makeQuery, makeRegistry } from "../../../lib/dist"
+import { make, makeQuery, makeSchema, makeWorld } from "../../../lib/dist"
 import { makePerf, makePerfOnce } from "../perf"
-import { BodyNative } from "./schema"
+import { Vector3 } from "./types"
 
-const registry = makeRegistry(5_000_000)
-const bodies = makeQuery(registry, BodyNative)
+const world = makeWorld(5_000_000)
+const Position = makeSchema(world, Vector3)
+const Velocity = makeSchema(world, Vector3)
+const Body = [Position, Velocity] as const
+const bodies = makeQuery(world, Body)
 
 export const insert = makePerfOnce(() => {
   for (let i = 0; i < 5_000_000; i++) {
-    attach(registry, i, BodyNative, [
+    make(world, Body, [
       { x: 1, y: 1, z: 1 },
       { x: 1, y: 1, z: 1 },
     ])

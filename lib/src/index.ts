@@ -1,6 +1,6 @@
-export { attach, detach, Entity } from "./entity"
+export { set, unset, make, Entity } from "./entity"
 export { makeQuery, Query } from "./query"
-export { makeRegistry, Registry } from "./registry"
+export { makeWorld, World } from "./world"
 export {
   AnySchema,
   BinarySchema,

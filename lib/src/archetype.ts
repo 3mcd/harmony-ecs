@@ -3,15 +3,16 @@ import {
   AnySchema,
   BinarySchema,
   Format,
-  getSchemaId,
   isBinarySchema,
   isFormat,
   NativeSchema,
+  SchemaId,
   ShapeOf,
 } from "./schema"
 import { InstanceOf } from "./types"
+import { World } from "./world"
 
-export type Type = ReadonlyArray<AnySchema>
+export type Type = ReadonlyArray<SchemaId>
 
 /**
  * an archetype table column which stores entity data in typed arrays
@@ -70,7 +71,9 @@ export type ArchetypeColumnOf<$Schema extends AnySchema> = $Schema extends Binar
  * entity-component storage
  */
 export type ArchetypeTable<$Type extends Type> = {
-  [K in keyof $Type]: $Type[K] extends AnySchema ? ArchetypeColumnOf<$Type[K]> : never
+  [K in keyof $Type]: $Type[K] extends SchemaId<infer $Schema>
+    ? ArchetypeColumnOf<$Schema>
+    : never
 }
 
 /**
@@ -81,6 +84,9 @@ export type Archetype<$Type extends Type = Type> = {
   entityIndex: number[]
   type: $Type
   table: ArchetypeTable<$Type>
+  layout: number[]
+  edgesSet: Archetype[]
+  edgesUnset: Archetype[]
 }
 
 /**
@@ -104,15 +110,20 @@ export type NativeDataOf<$Shape extends ShapeOf<NativeSchema>> = $Shape extends 
         : never
     }
 
+export type DataOf<$Shape extends ShapeOf<AnySchema>> =
+  $Shape extends ShapeOf<BinarySchema>
+    ? BinaryDataOf<$Shape>
+    : $Shape extends ShapeOf<NativeSchema>
+    ? NativeDataOf<$Shape>
+    : never
+
 /**
  * derive a tuple of component shapes by mapping the schema of an archetype
  * type
  */
 export type ArchetypeDataOf<$Type extends Type> = {
-  [K in keyof $Type]: $Type[K] extends BinarySchema
-    ? BinaryDataOf<ShapeOf<$Type[K]>>
-    : $Type[K] extends NativeSchema
-    ? NativeDataOf<ShapeOf<$Type[K]>>
+  [K in keyof $Type]: $Type[K] extends SchemaId<infer $Schema>
+    ? DataOf<ShapeOf<$Schema>>
     : never
 }
 
@@ -147,35 +158,64 @@ function makeArchetypeColumn<$Schema extends AnySchema>(
 }
 
 function makeArchetypeTable<$Type extends Type>(
+  world: World,
   type: $Type,
-  size: number,
 ): ArchetypeTable<$Type> {
   // TODO(3mcd): unsure how to get TypeScript to agree with this without
   // casting to unknown
-  return type.map(schema =>
-    makeArchetypeColumn(schema, size),
+  return type.map(id =>
+    makeArchetypeColumn(world.schemaIndex[id], world.size),
   ) as unknown as ArchetypeTable<$Type>
 }
 
-export function makeArchetype<$Type extends Type>(
-  type: $Type,
-  size: number,
-): Archetype<$Type> {
-  assertTypeNormalized(type)
+export function makeRootArchetype(): Archetype<[]> {
   const entities: Entity[] = []
   const entityIndex: number[] = []
-  const table = makeArchetypeTable(type, size)
-  return { entities, entityIndex, type, table }
+  const table: ArchetypeTable<[]> = []
+  return {
+    entities,
+    entityIndex,
+    edgesSet: [],
+    edgesUnset: [],
+    layout: [],
+    type: [],
+    table,
+  }
+}
+
+export function makeArchetype<$Type extends Type>(
+  world: World,
+  type: $Type,
+): Archetype<$Type> {
+  invariantTypeNormalized(type)
+  const entities: Entity[] = []
+  const entityIndex: number[] = []
+  const table = makeArchetypeTable(world, type)
+  const layout: number[] = []
+  for (let i = 0; i < type.length; i++) {
+    layout[type[i]] = i
+  }
+  return {
+    entities,
+    entityIndex,
+    edgesSet: [],
+    edgesUnset: [],
+    layout,
+    type,
+    table,
+  }
 }
 
 export function insertIntoArchetype<$Type extends Type>(
+  world: World,
   archetype: Archetype<$Type>,
   entity: Entity,
   data: ArchetypeDataOf<$Type>,
 ) {
   const length = archetype.entities.length
   for (let i = 0; i < archetype.type.length; i++) {
-    const schema = archetype.type[i]
+    const id = archetype.type[i]
+    const schema = world.schemaIndex[id]
     if (isBinarySchema(schema)) {
       const { shape } = schema
       if (isFormat(shape)) {
@@ -197,6 +237,7 @@ export function insertIntoArchetype<$Type extends Type>(
 }
 
 export function removeFromArchetype<$Type extends Type>(
+  world: World,
   archetype: Archetype<$Type>,
   entity: number,
 ) {
@@ -204,13 +245,14 @@ export function removeFromArchetype<$Type extends Type>(
   const index = archetype.entityIndex[entity]
   const head = archetype.entities.pop()
 
-  delete archetype.entityIndex[entity]
+  archetype.entityIndex[entity] = -1
 
   // TODO(3mcd): can this logic be easily consolidated?
   if (index === length - 1) {
     // entity was head
     for (let i = 0; i < archetype.type.length; i++) {
-      const schema = archetype.type[i]
+      const id = archetype.type[i]
+      const schema = world.schemaIndex[id]
       const column = archetype.table[i]
       if (isBinarySchema(schema)) {
         if (isFormat(schema.shape)) {
@@ -227,7 +269,8 @@ export function removeFromArchetype<$Type extends Type>(
   } else {
     const moved = length - 1
     for (let i = 0; i < archetype.type.length; i++) {
-      const schema = archetype.type[i]
+      const id = archetype.type[i]
+      const schema = world.schemaIndex[id]
       const column = archetype.table[i]
       if (isBinarySchema(schema)) {
         if (isFormat(schema.shape)) {
@@ -241,6 +284,8 @@ export function removeFromArchetype<$Type extends Type>(
             column[key][index] = value
           }
         }
+      } else {
+        column[index] = column.pop()
       }
     }
     archetype.entities[index] = head
@@ -248,16 +293,97 @@ export function removeFromArchetype<$Type extends Type>(
   }
 }
 
+export function moveToArchetype(
+  world: World,
+  prev: Archetype,
+  next: Archetype,
+  entity: number,
+  schema?: AnySchema,
+  data?: unknown,
+) {
+  const nextType = next.type
+  const nextIndex = next.entities.length
+  const prevType = prev.type
+  const prevLength = prev.entities.length
+  const prevEnd = prevLength - 1
+  const prevIndex = prev.entityIndex[entity]
+  const prevHead = prev.entities.pop()
+  const set = prevType.length < nextType.length
+  const pop = prevIndex !== prevEnd
+
+  let i = 0
+  let j = 0
+
+  for (; i < prevType.length; i++) {
+    const prevId = prevType[i]
+    const nextId = nextType[j]
+    const prevColumn = prev.table[i]
+    const nextColumn = next.table[j]
+    const schema = world.schemaIndex[prevId]
+    const hit = prevId === nextId
+    if (isBinarySchema(schema)) {
+      if (isFormat(schema.shape)) {
+        if (hit) nextColumn[nextIndex] = prevColumn[prevIndex]
+        // TODO(3mcd): this can be optimized, we know `move` ahead of time
+        if (pop) {
+          prevColumn[prevIndex] = 0
+        } else {
+          prevColumn[prevIndex] = prevColumn[prevEnd]
+          prevColumn[prevEnd] = 0
+        }
+      } else {
+        for (const key in schema.shape) {
+          const array = prevColumn[key]
+          if (hit) nextColumn[nextIndex] = array[prevIndex]
+          if (pop) {
+            prevColumn[key][prevIndex] = 0
+          } else {
+            prevColumn[key][prevIndex] = prevColumn[key][prevEnd]
+            prevColumn[key][prevEnd] = 0
+          }
+        }
+      }
+    } else {
+      const data = prevColumn.pop()
+      if (hit) nextColumn[nextIndex] = data
+      if (!pop) {
+        prevColumn[prevIndex] = data
+      }
+    }
+    if (hit) j++
+  }
+
+  if (set) {
+    const nextColumn = next.table[next.layout[schema.id]]
+    if (isBinarySchema(schema)) {
+      if (isFormat(schema.shape)) {
+        nextColumn[nextIndex] = data
+      } else {
+        for (const key in schema.shape) {
+          nextColumn[key][nextIndex] = data[key]
+        }
+      }
+    } else {
+      nextColumn[nextIndex] = data
+    }
+  }
+  next.entities[next.entities.length] = entity
+  next.entityIndex[entity] = next.entities.length
+  prev.entities[prevIndex] = prevHead
+  prev.entityIndex[prevHead] = prevIndex
+  prev.entityIndex[entity] = -1
+}
+
 export function grow(archetype: Archetype) {}
 
 export function normalizeType(type: Type) {
-  return Object.freeze(type.slice().sort((a, b) => getSchemaId(a) - getSchemaId(b)))
+  return Object.freeze(type.slice().sort((a, b) => a - b))
 }
 
-export function assertTypeNormalized(type: Type) {
+export function invariantTypeNormalized(type: Type) {
   for (let i = 0; i < type.length - 1; i++) {
-    if (getSchemaId(type[i]) > getSchemaId(type[i + 1])) {
-      throw new TypeError("type not normalized")
+    if (type[i] > type[i + 1]) {
+      throw new TypeError("abnormal type")
     }
   }
 }
@@ -269,11 +395,11 @@ export function typeContains(type: Type, subset: Type) {
     return false
   }
   while (i < type.length && j < subset.length) {
-    const typeSchemaId = getSchemaId(type[i])
-    const subsetSchemaId = getSchemaId(subset[i])
-    if (typeSchemaId < subsetSchemaId) {
+    const typeId = type[i]
+    const subsetTypeId = subset[i]
+    if (typeId < subsetTypeId) {
       i++
-    } else if (typeSchemaId === subsetSchemaId) {
+    } else if (typeId === subsetTypeId) {
       i++
       j++
     } else {
@@ -287,7 +413,7 @@ export function makeTypeHash(type: Type) {
   let buckets = 97
   let hash = type.length % buckets
   for (let i = 0; i < type.length; i++) {
-    hash = (hash + getSchemaId(type[i])) % buckets
+    hash = (hash + type[i]) % buckets
   }
   return hash
 }

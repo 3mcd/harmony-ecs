@@ -3,6 +3,7 @@
     "composite": true,
     "downlevelIteration": true,
     "esModuleInterop": true,
+    "target": "es2019",
     "module": "es2020",
     "moduleResolution": "node"
   }

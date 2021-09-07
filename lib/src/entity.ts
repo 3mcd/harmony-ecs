@@ -1,20 +1,27 @@
 import {
+  Archetype,
   ArchetypeDataOf,
   BinaryDataOf,
+  DataOf,
   insertIntoArchetype,
+  moveToArchetype,
   NativeDataOf,
   Type,
 } from "./archetype"
 import { findOrMakeArchetype } from "./archetype_graph"
-import { Registry } from "./registry"
+import { invariant } from "./debug"
 import {
   AnySchema,
   BinarySchema,
   isBinarySchema,
   isFormat,
   NativeSchema,
+  SchemaId,
+  SchemaOfId,
   ShapeOf,
 } from "./schema"
+import { addToType } from "./type"
+import { World } from "./world"
 
 export type Entity = number
 
@@ -30,6 +37,7 @@ function initializeBinaryShape<$Shape extends ShapeOf<BinarySchema>>(
   }
   return struct as BinaryDataOf<$Shape>
 }
+
 function initializeNativeShape<$Shape extends ShapeOf<NativeSchema>>(
   shape: $Shape,
 ): NativeDataOf<$Shape> {
@@ -44,22 +52,63 @@ function initializeNativeShape<$Shape extends ShapeOf<NativeSchema>>(
   }
   return struct as NativeDataOf<$Shape>
 }
+
 function initializeSchema<$Schema extends AnySchema>(schema: $Schema) {
   return isBinarySchema(schema)
     ? initializeBinaryShape(schema.shape)
     : initializeNativeShape(schema.shape)
 }
-function initializeType<$Type extends Type>(type: $Type): ArchetypeDataOf<$Type> {
-  return type.map(initializeSchema) as unknown as ArchetypeDataOf<$Type>
+
+function initializeType<$Type extends Type>(
+  world: World,
+  type: $Type,
+): ArchetypeDataOf<$Type> {
+  return type.map(id =>
+    initializeSchema(world.schemaIndex[id]),
+  ) as unknown as ArchetypeDataOf<$Type>
 }
 
-export function attach<$Type extends Type>(
-  registry: Registry,
-  entity: Entity,
+export function make<$Type extends Type>(
+  world: World,
   type: $Type,
-  data?: ArchetypeDataOf<$Type>,
+  data: ArchetypeDataOf<$Type> = initializeType(world, type),
 ) {
-  const archetype = findOrMakeArchetype(registry, type)
-  insertIntoArchetype(archetype, entity, data ?? initializeType(type))
+  const entity = world.entityHead++
+  const archetype = findOrMakeArchetype(world, type)
+  insertIntoArchetype(world, archetype, entity, data)
+  world.entityIndex[entity] = archetype
+  return entity
 }
-export function detach(registry: Registry, entity: Entity, type: Type) {}
+
+export function set<$SchemaId extends SchemaId>(
+  world: World,
+  entity: Entity,
+  id: $SchemaId,
+  data?: DataOf<ShapeOf<SchemaOfId<$SchemaId>>>,
+) {
+  const schema = world.schemaIndex[id]
+  const final =
+    data ?? (initializeSchema(schema) as DataOf<ShapeOf<SchemaOfId<$SchemaId>>>)
+  const prev = world.entityIndex[entity]
+  if (prev === undefined) {
+    const archetype = findOrMakeArchetype(world, [id])
+    insertIntoArchetype(world, archetype, entity, [final])
+    world.entityIndex[entity] = archetype
+  } else {
+    const next = prev.edgesSet[id] ?? findOrMakeArchetype(world, addToType(prev.type, id))
+    moveToArchetype(world, prev, next, entity, schema, final)
+    world.entityIndex[entity] = next
+  }
+}
+
+export function unset<$SchemaId extends SchemaId>(
+  world: World,
+  entity: Entity,
+  id: $SchemaId,
+) {
+  const prev = world.entityIndex[entity]
+  invariant(prev !== undefined)
+  const next = prev.edgesUnset[id] ?? findOrMakeArchetype(world, addToType(prev.type, id))
+  moveToArchetype(world, prev, next, entity)
+  world.entityIndex[entity] = next
+}

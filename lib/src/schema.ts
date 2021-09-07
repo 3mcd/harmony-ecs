@@ -1,9 +1,7 @@
-import {
-  internal$harmonyFormat,
-  internalReserveSchemaId,
-  internalSchemaIndex
-} from "./internal"
-import { TypedArrayConstructor } from "./types"
+import { Entity } from "./entity"
+import { internal$harmonyFormat } from "./internal"
+import { Opaque, TypedArrayConstructor } from "./types"
+import { World } from "./world"
 
 // types
 export enum FormatKind {
@@ -27,15 +25,33 @@ export enum SchemaKind {
 }
 
 export type BinarySchema = {
+  id: number
   kind: SchemaKind.Binary
   shape: Format | { [key: string]: Format }
 }
 export type NativeSchema = {
+  id: number
   kind: SchemaKind.Native
-  shape: Format | { [key: string]: NativeSchema["shape"] }
+  shape: Format | { [key: string]: ShapeOf<NativeSchema> }
+}
+export type BinarySchemaOf<$Shape extends ShapeOf<BinarySchema>> = {
+  id: number
+  kind: SchemaKind.Binary
+  shape: $Shape
+}
+export type NativeSchemaOf<$Shape extends ShapeOf<NativeSchema>> = {
+  id: number
+  kind: SchemaKind.Native
+  shape: $Shape
 }
 export type AnySchema = BinarySchema | NativeSchema
-export type ShapeOf<$Schema extends AnySchema> = $Schema["shape"]
+export type ShapeOf<$Type extends { shape: unknown }> = $Type["shape"]
+export type SchemaId<$Schema extends AnySchema = AnySchema> = Opaque<Entity, $Schema>
+export type SchemaOfId<$SchemaId extends SchemaId> = $SchemaId extends SchemaId<
+  infer $Schema
+>
+  ? $Schema
+  : never
 
 function makeFormat<$Kind extends FormatKind, $Binary extends TypedArrayConstructor>(
   kind: $Kind,
@@ -69,29 +85,31 @@ export const formats = {
 }
 
 // helpers
-export function makeBinarySchema<$Shape extends BinarySchema["shape"]>(
+export function makeBinarySchema<$Shape extends ShapeOf<BinarySchema>>(
+  world: World,
   shape: $Shape,
   schemaId?: number,
-) {
-  const schema = { kind: SchemaKind.Binary as const, shape }
-  internalSchemaIndex.set(schema, internalReserveSchemaId(schemaId))
-  return schema
-}
-export function makeSchema<$Shape extends NativeSchema["shape"]>(
-  shape: $Shape,
-  schemaId?: number,
-) {
-  const schema = { kind: SchemaKind.Native as const, shape }
-  internalSchemaIndex.set(schema, internalReserveSchemaId(schemaId))
-  return schema
-}
-
-export function getSchemaId(schema: AnySchema) {
-  const schemaId = internalSchemaIndex.get(schema)
-  if (schemaId === undefined) {
-    throw new TypeError("object is not a registered schema")
+): SchemaId<BinarySchemaOf<$Shape>> {
+  if (world.entityHead >= schemaId) {
+    throw new RangeError("id already reserved")
   }
-  return schemaId
+  const id = world.entityHead++
+  const schema = { id, kind: SchemaKind.Binary as const, shape }
+  world.schemaIndex[id] = schema
+  return id as SchemaId<BinarySchemaOf<$Shape>>
+}
+export function makeSchema<$Shape extends ShapeOf<NativeSchema>>(
+  world: World,
+  shape: $Shape,
+  schemaId?: number,
+): SchemaId<NativeSchemaOf<$Shape>> {
+  if (world.entityHead >= schemaId) {
+    throw new RangeError("id already reserved")
+  }
+  const id = world.entityHead++
+  const schema = { id, kind: SchemaKind.Native as const, shape }
+  world.schemaIndex[id] = schema
+  return id as SchemaId<NativeSchemaOf<$Shape>>
 }
 
 export function isFormat(object: object): object is Format {

@@ -1,6 +1,6 @@
 import { Archetype, ArchetypeTable, Type, typeContains } from "./archetype"
 import { Entity } from "./entity"
-import { Registry } from "./registry"
+import { World } from "./world"
 
 export type QueryRecord<$Type extends Type> = [
   entities: ReadonlyArray<Entity>,
@@ -10,6 +10,7 @@ export type QueryIterator<$Type extends Type> = IterableIterator<QueryRecord<$Ty
 
 export type Query<$Type extends Type = Type> = {
   dispose(): void
+  records: QueryRecord<$Type>[]
   [Symbol.iterator](): QueryIterator<$Type>
 }
 
@@ -20,12 +21,9 @@ export function not<$Query extends Query, $Exclude extends Type>(
   return query
 }
 
-export function makeQuery<$Type extends Type>(
-  registry: Registry,
-  type: $Type,
-): Query<$Type> {
+export function makeQuery<$Type extends Type>(world: World, type: $Type): Query<$Type> {
   const records: QueryRecord<$Type>[] = []
-  const unsubscribe = registry.onArchetypeCreated(maybeRegisterArchetype)
+  const unsubscribe = world.onArchetypeCreated(maybeRegisterArchetype)
   function maybeRegisterArchetype(archetype: Archetype) {
     if (typeContains(archetype.type, type)) {
       const columns = type.map(schema => archetype.table[archetype.type.indexOf(schema)])
@@ -41,10 +39,11 @@ export function makeQuery<$Type extends Type>(
     unsubscribe()
   }
 
-  registry.archetypes.forEach(node => maybeRegisterArchetype(node.archetype))
+  world.archetypes.forEach(maybeRegisterArchetype)
 
   return {
     [Symbol.iterator]: () => records[Symbol.iterator](),
+    records,
     dispose,
   }
 }

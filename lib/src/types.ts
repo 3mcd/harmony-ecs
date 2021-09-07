@@ -15,3 +15,9 @@ export type TypedArrayConstructor = {
 }
 
 export type InstanceOf<$Ctor> = $Ctor extends { new (): infer _ } ? _ : never
+
+declare class OpaqueTag<$Tag> {
+  protected tag: $Tag;
+}
+
+export type Opaque<$Type, $Tag> = $Type & OpaqueTag<$Tag>;

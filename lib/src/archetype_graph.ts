@@ -1,61 +1,43 @@
 import { Archetype, makeArchetype, makeTypeHash, Type, typeContains } from "./archetype"
-import { Registry } from "./registry"
-import { AnySchema } from "./schema"
+import { SchemaId } from "./schema"
+import { World } from "./world"
 
-export type ArchetypeGraphNode = {
-  archetype: Archetype
-  leftEdges: Map<AnySchema, ArchetypeGraphNode>
-  rightEdges: Map<AnySchema, ArchetypeGraphNode>
+function makeEdges(left: Archetype, right: Archetype, id: SchemaId) {
+  left.edgesSet[id] = right
+  right.edgesUnset[id] = left
 }
 
-export function makeArchetypeGraphNode(archetype: Archetype): ArchetypeGraphNode {
-  return { archetype, leftEdges: new Map(), rightEdges: new Map() }
-}
-
-function makeEdges(
-  left: ArchetypeGraphNode,
-  right: ArchetypeGraphNode,
-  schema: AnySchema,
-) {
-  left.rightEdges.set(schema, right)
-  right.leftEdges.set(schema, left)
-}
-
-function linkNode(root: ArchetypeGraphNode, node: ArchetypeGraphNode) {
-  if (root.archetype.type.length > node.archetype.type.length - 1) {
+function linkArchetype(left: Archetype, archetype: Archetype) {
+  if (left.type.length > archetype.type.length - 1) {
     return
   }
 
-  if (root.archetype.type.length < node.archetype.type.length - 1) {
-    root.rightEdges.forEach(edge => linkNode(edge, node))
+  if (left.type.length < archetype.type.length - 1) {
+    left.edgesSet.forEach(edge => linkArchetype(edge, archetype))
     return
   }
 
-  if (
-    root.archetype.type.length === 0 ||
-    typeContains(node.archetype.type, root.archetype.type)
-  ) {
+  if (left.type.length === 0 || typeContains(archetype.type, left.type)) {
     let i = 0
-    let length = node.archetype.type.length
-    for (; i < length && root.archetype.type[i] === node.archetype.type[i]; i++);
-    makeEdges(root, node, node.archetype.type[i])
+    let length = archetype.type.length
+    for (; i < length && left.type[i] === archetype.type[i]; i++);
+    makeEdges(left, archetype, archetype.type[i])
   }
 }
 
-function insertArchetype(type: Type, registry: Registry): ArchetypeGraphNode {
-  const archetype = makeArchetype(type, registry.size)
-  const node = makeArchetypeGraphNode(archetype)
-  linkNode(registry.root, node)
-  registry.onArchetypeCreated.dispatch(archetype)
-  registry.archetypes.set(makeTypeHash(archetype.type), node)
-  return node
+function insertArchetype(world: World, type: Type): Archetype {
+  const archetype = makeArchetype(world, type)
+  linkArchetype(world.root, archetype)
+  world.onArchetypeCreated.dispatch(archetype)
+  world.archetypes.set(makeTypeHash(archetype.type), archetype)
+  return archetype
 }
 
-export function findOrMakeArchetype(registry: Registry, type: Type) {
-  let node = registry.root
+export function findOrMakeArchetype(world: World, type: Type) {
+  let archetype = world.root
   for (let i = 0; i < type.length; i++) {
-    const schema = type[i]
-    node = node.rightEdges.get(schema) ?? insertArchetype(type.slice(0, i + 1), registry)
+    const id = type[i]
+    archetype = archetype.edgesSet[id] ?? insertArchetype(world, type.slice(0, i + 1))
   }
-  return node.archetype
+  return archetype
 }

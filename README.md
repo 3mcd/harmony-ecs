@@ -11,20 +11,20 @@ const Vector2 = {
   x: Harmony.formats.float64,
   y: Harmony.formats.float64,
 }
-const Position = Harmony.makeSchema(Vector2)
-const Velocity = Harmony.makeBinarySchema(Vector2)
-const registry = Harmony.makeRegistry(1_000_000)
+const world = Harmony.makeWorld(1_000_000)
+const Position = Harmony.makeSchema(world, Vector2)
+const Velocity = Harmony.makeBinarySchema(world, Vector2)
 const Kinetic = [Position, Velocity] as const
-const kinetic = Harmony.makeQuery(registry, Kinetic)
+const kinetics = Harmony.makeQuery(world, Kinetic)
 
 for (let i = 0; i < 1_000_000; i++) {
-  Harmony.attach(registry, i, Kinetic)
+  Harmony.make(world, i, Kinetic)
 }
 
-for (const [entities, [p, v]] of kinetic) {
+for (const [entities, [p, v]] of kinetics) {
   for (let i = 0; i < entities.length; i++) {
-      p[i].x += v.x[i]
-      p[i].y += v.y[i]
+    p[i].x += v.x[i]
+    p[i].y += v.y[i]
   }
 }
 ```
