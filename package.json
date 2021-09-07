@@ -8,8 +8,10 @@
     "node": "16.4.2"
   },
   "scripts": {
-    "perf:node": "tsc -b perf && node --es-module-specifier-resolution=node perf/dist/index.js",
-    "perf:browser": "tsc -b perf && vite --config perf/vite.config.js",
+    "perf:node": "npm run build && node --es-module-specifier-resolution=node perf/dist/index.js",
+    "perf:browser": "npm run build && vite --config perf/vite.config.js",
+    "build": "tsc -b lib && tsc -b perf",
+    "postbuild": "node lib/build/optimize.js",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "author": "",

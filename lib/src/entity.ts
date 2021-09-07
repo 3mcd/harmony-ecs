@@ -1,5 +1,4 @@
 import {
-  Archetype,
   ArchetypeDataOf,
   BinaryDataOf,
   DataOf,
@@ -20,7 +19,7 @@ import {
   SchemaOfId,
   ShapeOf,
 } from "./schema"
-import { addToType } from "./type"
+import { addToType, removeFromType } from "./type"
 import { World } from "./world"
 
 export type Entity = number
@@ -108,7 +107,8 @@ export function unset<$SchemaId extends SchemaId>(
 ) {
   const prev = world.entityIndex[entity]
   invariant(prev !== undefined)
-  const next = prev.edgesUnset[id] ?? findOrMakeArchetype(world, addToType(prev.type, id))
+  const next =
+    prev.edgesUnset[id] ?? findOrMakeArchetype(world, removeFromType(prev.type, id))
   moveToArchetype(world, prev, next, entity)
   world.entityIndex[entity] = next
 }

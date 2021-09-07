@@ -6,13 +6,7 @@ export type QueryRecord<$Type extends Type> = [
   entities: ReadonlyArray<Entity>,
   data: Readonly<ArchetypeTable<$Type>>,
 ]
-export type QueryIterator<$Type extends Type> = IterableIterator<QueryRecord<$Type>>
-
-export type Query<$Type extends Type = Type> = {
-  dispose(): void
-  records: QueryRecord<$Type>[]
-  [Symbol.iterator](): QueryIterator<$Type>
-}
+export type Query<$Type extends Type = Type> = ReadonlyArray<QueryRecord<$Type>>
 
 export function not<$Query extends Query, $Exclude extends Type>(
   query: $Query,
@@ -23,7 +17,6 @@ export function not<$Query extends Query, $Exclude extends Type>(
 
 export function makeQuery<$Type extends Type>(world: World, type: $Type): Query<$Type> {
   const records: QueryRecord<$Type>[] = []
-  const unsubscribe = world.onArchetypeCreated(maybeRegisterArchetype)
   function maybeRegisterArchetype(archetype: Archetype) {
     if (typeContains(archetype.type, type)) {
       const columns = type.map(schema => archetype.table[archetype.type.indexOf(schema)])
@@ -35,15 +28,9 @@ export function makeQuery<$Type extends Type>(world: World, type: $Type): Query<
       ])
     }
   }
-  function dispose() {
-    unsubscribe()
-  }
 
   world.archetypes.forEach(maybeRegisterArchetype)
+  world.onArchetypeCreated(maybeRegisterArchetype)
 
-  return {
-    [Symbol.iterator]: () => records[Symbol.iterator](),
-    records,
-    dispose,
-  }
+  return records
 }

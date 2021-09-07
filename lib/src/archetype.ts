@@ -1,3 +1,4 @@
+import { invariant } from "./debug"
 import { Entity } from "./entity"
 import {
   AnySchema,
@@ -354,6 +355,7 @@ export function moveToArchetype(
   }
 
   if (set) {
+    invariant(schema !== undefined)
     const nextColumn = next.table[next.layout[schema.id]]
     if (isBinarySchema(schema)) {
       if (isFormat(schema.shape)) {
@@ -396,7 +398,7 @@ export function typeContains(type: Type, subset: Type) {
   }
   while (i < type.length && j < subset.length) {
     const typeId = type[i]
-    const subsetTypeId = subset[i]
+    const subsetTypeId = subset[j]
     if (typeId < subsetTypeId) {
       i++
     } else if (typeId === subsetTypeId) {
