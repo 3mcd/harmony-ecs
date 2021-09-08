@@ -1,17 +1,17 @@
 {
   "name": "harmony-ecs",
-  "version": "1.0.0",
+  "version": "0.0.1",
   "description": "",
-  "main": "lib/dist/index.js",
+  "main": "lib/dist/cjs/index.js",
+  "module": "lib/dist/esm/index.js",
+  "types": "lib/dist/esm/index.d.ts",
   "type": "module",
-  "engines": {
-    "node": "16.4.2"
-  },
   "scripts": {
     "perf:node": "npm run build && node --es-module-specifier-resolution=node perf/dist/index.js",
-    "perf:browser": "npm run build && vite --config perf/vite.config.js",
-    "build": "tsc -b lib && tsc -b perf",
+    "perf:browser": "npm run build && cd ./perf && vite",
+    "build": "tsc -b lib && tsc -b lib/tsconfig.cjs.json && tsc -b perf",
     "postbuild": "node lib/build/optimize.js",
+    "prepare": "npm run build",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "author": "",

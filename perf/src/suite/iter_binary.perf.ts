@@ -1,4 +1,4 @@
-import { make, makeBinarySchema, makeQuery, makeWorld } from "../../../lib/dist"
+import { make, makeBinarySchema, makeQuery, makeWorld } from "../../../lib/dist/esm"
 import { makePerf, makePerfOnce } from "../perf"
 import { Vector3 } from "./types"
 

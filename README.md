@@ -9,12 +9,14 @@ Harmony will eventually be incorporated into [Javelin](https://github.com/3mcd/j
 ## Features
 
 - Written in TypeScript
-- Hybrid struct-of-array `{ x: [] }` and array-of-struct `[{ x }]` storage
+- Hybrid struct-of-array `{ x: [0] }` and array-of-struct `[{ x: 0 }]` storage
 - Fast iteration
 - Fast insert/relocate via archetype graph
 - Compatible with (any?) third-party library
 
-## Example
+## Examples
+
+Below is an example of hybrid storage where a TypedArray-based `Velocity` component is used to update an object-based `Position` component:
 
 ```ts
 import * as Harmony from "./lib/dist"
@@ -40,6 +42,22 @@ for (const [entities, [p, v]] of kinetics) {
   }
 }
 ```
+
+Harmony does not modify objects, making it highly compatible with third-party libraries. Take the following example where an entity is composed of a Three.js mesh, Cannon.js rigid body, and some proprietary TypedArray-backed data.
+
+```ts
+const Vector3 = { x: Harmony.formats.float64 /* etc */ }
+const mesh = new Three.Mesh(new Three.SphereGeometry(), new Three.MeshBasicMaterial())
+const body = new Cannon.Body({ mass: 1, shape: new Cannon.Sphere(1) })
+const Mesh = Harmony.makeSchema(world, { position: Vector3 })
+const Body = Harmony.makeSchema(world, { position: Vector3 })
+const PlayerInfo = Harmony.makeBinarySchema(world, { id: Harmony.formats.uint32 })
+const Player = [Mesh, Body, PlayerInfo] as const
+
+Harmony.make(world, Player)
+```
+
+Note that we still need to define the shape of third party objects, as seen in the `Mesh` and `Body` variables. This supplies Harmony with static type information for queries and provides the ECS with important runtime information for serialization, etc.
 
 ## Performance Tests
 

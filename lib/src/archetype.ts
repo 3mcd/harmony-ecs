@@ -151,7 +151,7 @@ function makeArchetypeColumn<$Schema extends AnySchema>(
         )
         a[memberName] = new memberNode.binary(buffer)
         return a
-      }, {}) as ArchetypeColumnOf<$Schema>
+      }, {} as ArchetypeColumnOf<$Schema>)
     }
   } else {
     // native
