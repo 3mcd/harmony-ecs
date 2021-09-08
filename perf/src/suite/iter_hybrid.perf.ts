@@ -1,6 +1,6 @@
 import {
-  make,
   makeBinarySchema,
+  makeEntity,
   makeQuery,
   makeSchema,
   makeWorld,
@@ -16,7 +16,7 @@ const bodies = makeQuery(world, Body)
 
 export const insert = makePerfOnce(() => {
   for (let i = 0; i < 5_000_000; i++) {
-    make(world, Body, [
+    makeEntity(world, Body, [
       { x: 1, y: 1, z: 1 },
       { x: 1, y: 1, z: 1 },
     ])

@@ -68,7 +68,7 @@ function initializeType<$Type extends Type>(
   ) as unknown as ArchetypeDataOf<$Type>
 }
 
-export function make<$Type extends Type>(
+export function makeEntity<$Type extends Type>(
   world: World,
   type: $Type,
   data: ArchetypeDataOf<$Type> = initializeType(world, type),
@@ -78,6 +78,12 @@ export function make<$Type extends Type>(
   insertIntoArchetype(world, archetype, entity, data)
   world.entityIndex[entity] = archetype
   return entity
+}
+
+export function destroyEntity(world: World, entity: Entity) {
+  const prev = world.entityIndex[entity]
+  invariant(prev !== undefined)
+  removeFromArchetype(world, prev, entity)
 }
 
 export function set<$SchemaId extends SchemaId>(
@@ -112,10 +118,4 @@ export function unset<$SchemaId extends SchemaId>(
     prev.edgesUnset[id] ?? findOrMakeArchetype(world, removeFromType(prev.type, id))
   moveToArchetype(world, prev, next, entity)
   world.entityIndex[entity] = next
-}
-
-export function destroy(world: World, entity: Entity) {
-  const prev = world.entityIndex[entity]
-  invariant(prev !== undefined)
-  removeFromArchetype(world, prev, entity)
 }

@@ -32,7 +32,7 @@ const Kinetic = [Position, Velocity] as const
 const kinetics = Harmony.makeQuery(world, Kinetic)
 
 for (let i = 0; i < 1_000_000; i++) {
-  Harmony.make(world, Kinetic)
+  Harmony.makeEntity(world, Kinetic)
 }
 
 for (const [entities, [p, v]] of kinetics) {
@@ -54,7 +54,7 @@ const Body = Harmony.makeSchema(world, { position: Vector3 })
 const PlayerInfo = Harmony.makeBinarySchema(world, { id: Harmony.formats.uint32 })
 const Player = [Mesh, Body, PlayerInfo] as const
 
-Harmony.make(world, Player)
+Harmony.makeEntity(world, Player)
 ```
 
 Note that we still need to define the shape of third party objects, as seen in the `Mesh` and `Body` variables. This supplies Harmony with static type information for queries and provides the ECS with important runtime information for serialization, etc.

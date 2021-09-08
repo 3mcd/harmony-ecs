@@ -1,11 +1,17 @@
 {
   "name": "harmony-ecs",
-  "version": "0.0.1",
-  "description": "",
-  "main": "lib/dist/cjs/index.js",
-  "module": "lib/dist/esm/index.js",
-  "types": "lib/dist/esm/index.d.ts",
+  "version": "0.0.2",
+  "description": "A small archetypal ECS focused on compatibility and performance",
   "type": "module",
+  "types": "./lib/dist/esm/index.d.ts",
+  "main": "./lib/dist/cjs/index.js",
+  "exports": {
+    "import": "./lib/dist/esm/index.js",
+    "require": "./lib/dist/cjs/index.js"
+  },
+  "files": [
+    "lib/dist"
+  ],
   "scripts": {
     "perf:node": "npm run build && node --es-module-specifier-resolution=node perf/dist/index.js",
     "perf:browser": "npm run build && cd ./perf && vite",
@@ -14,13 +20,11 @@
     "prepare": "npm run build",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
-  "author": "",
-  "license": "ISC",
-  "dependencies": {
-    "typescript": "^4.4.2"
-  },
+  "author": "Eric McDaniel <eric.g.mcdaniel@gmail.com>",
+  "license": "MIT",
   "devDependencies": {
     "@babel/core": "^7.15.5",
+    "typescript": "^4.4.2",
     "vite": "^2.5.3"
   }
 }

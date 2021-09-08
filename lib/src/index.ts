@@ -1,4 +1,4 @@
-export { Entity, make, set, unset, destroy } from "./entity"
+export { destroyEntity, Entity, makeEntity, set, unset } from "./entity"
 export { makeQuery, makeStaticQuery, not, Query } from "./query"
 export {
   AnySchema,
