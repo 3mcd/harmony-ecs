@@ -1,4 +1,4 @@
-import { Archetype, makeArchetype, makeTypeHash, Type, typeContains } from "./archetype"
+import { Archetype, makeArchetype, makeTypeHash, Type, isSupersetOf } from "./archetype"
 import { SchemaId } from "./schema"
 import { World } from "./world"
 
@@ -17,7 +17,7 @@ function linkArchetype(left: Archetype, archetype: Archetype) {
     return
   }
 
-  if (left.type.length === 0 || typeContains(archetype.type, left.type)) {
+  if (left.type.length === 0 || isSupersetOf(archetype.type, left.type)) {
     let i = 0
     let length = archetype.type.length
     for (; i < length && left.type[i] === archetype.type[i]; i++);

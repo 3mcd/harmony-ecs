@@ -1,6 +1,5 @@
-export { set, unset, make, Entity } from "./entity"
-export { makeQuery, Query } from "./query"
-export { makeWorld, World } from "./world"
+export { Entity, make, set, unset, destroy } from "./entity"
+export { makeQuery, makeStaticQuery, not, Query } from "./query"
 export {
   AnySchema,
   BinarySchema,
@@ -10,3 +9,4 @@ export {
   NativeSchema,
 } from "./schema"
 export { makeSignal } from "./signal"
+export { makeWorld, World } from "./world"

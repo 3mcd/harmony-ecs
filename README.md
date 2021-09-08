@@ -1,8 +1,20 @@
 # harmony-ecs
 
-The beginnings of an archetypal ECS with support for object components, binary components (via TypedArrays) and third-party libraries.
+A small archetypal ECS focused on compatibility and performance. Harmony has a small footprint, making it a good set of building blocks to make a full ECS with.
 
-I wrote a short article that describes the motivation for this project called _[ECS in JS – Storage Mechanisms](https://crablike.hashnode.dev/ecs-in-js-storage-mechanisms)_.
+I wrote a short article that describes the motivation for this project called _[ECS in JS – Storage Mechanisms](https://javelin.hashnode.dev/ecs-in-js-storage-mechanisms)_.
+
+Harmony will eventually be incorporated into [Javelin](https://github.com/3mcd/javelin), a more feature-rich ECS focused on multiplayer game development.
+
+## Features
+
+- Written in TypeScript
+- Hybrid struct-of-array `{ x: [] }` and array-of-struct `[{ x }]` storage
+- Fast iteration
+- Fast insert/relocate via archetype graph
+- Compatible with (any?) third-party library
+
+## Example
 
 ```ts
 import * as Harmony from "./lib/dist"
@@ -18,7 +30,7 @@ const Kinetic = [Position, Velocity] as const
 const kinetics = Harmony.makeQuery(world, Kinetic)
 
 for (let i = 0; i < 1_000_000; i++) {
-  Harmony.make(world, i, Kinetic)
+  Harmony.make(world, Kinetic)
 }
 
 for (const [entities, [p, v]] of kinetics) {

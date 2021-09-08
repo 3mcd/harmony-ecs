@@ -5,6 +5,7 @@ import {
   insertIntoArchetype,
   moveToArchetype,
   NativeDataOf,
+  removeFromArchetype,
   Type,
 } from "./archetype"
 import { findOrMakeArchetype } from "./archetype_graph"
@@ -111,4 +112,10 @@ export function unset<$SchemaId extends SchemaId>(
     prev.edgesUnset[id] ?? findOrMakeArchetype(world, removeFromType(prev.type, id))
   moveToArchetype(world, prev, next, entity)
   world.entityIndex[entity] = next
+}
+
+export function destroy(world: World, entity: Entity) {
+  const prev = world.entityIndex[entity]
+  invariant(prev !== undefined)
+  removeFromArchetype(world, prev, entity)
 }

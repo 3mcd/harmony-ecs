@@ -246,14 +246,11 @@ export function removeFromArchetype<$Type extends Type>(
   archetype: Archetype<$Type>,
   entity: number,
 ) {
-  const length = archetype.entities.length
   const index = archetype.entityIndex[entity]
   const head = archetype.entities.pop()
+  const pop = index === archetype.length - 1
 
-  archetype.entityIndex[entity] = -1
-
-  // TODO(3mcd): can this logic be easily consolidated?
-  if (index === length - 1) {
+  if (pop) {
     // entity was head
     for (let i = 0; i < archetype.type.length; i++) {
       const id = archetype.type[i]
@@ -272,7 +269,7 @@ export function removeFromArchetype<$Type extends Type>(
       }
     }
   } else {
-    const moved = length - 1
+    const moved = archetype.length - 1
     for (let i = 0; i < archetype.type.length; i++) {
       const id = archetype.type[i]
       const schema = world.schemaIndex[id]
@@ -296,6 +293,8 @@ export function removeFromArchetype<$Type extends Type>(
     archetype.entities[index] = head
     archetype.entityIndex[head] = index
   }
+
+  archetype.entityIndex[entity] = -1
   archetype.length--
 }
 
@@ -462,7 +461,7 @@ export function invariantTypeNormalized(type: Type) {
   }
 }
 
-export function typeContains(type: Type, subset: Type) {
+export function isSupersetOf(type: Type, subset: Type) {
   let i = 0
   let j = 0
   if (type.length < subset.length) {

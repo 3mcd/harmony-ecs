@@ -4,7 +4,7 @@ import {
   invariantTypeNormalized,
   normalizeType,
   Type,
-  typeContains,
+  isSupersetOf,
 } from "./archetype"
 import { findOrMakeArchetype } from "./archetype_graph"
 import { Entity } from "./entity"
@@ -15,21 +15,19 @@ export type QueryRecord<$Type extends Type> = [
   data: Readonly<ArchetypeTable<$Type>>,
 ]
 export type Query<$Type extends Type = Type> = ReadonlyArray<QueryRecord<$Type>>
-
-export function not<$Query extends Query, $Exclude extends Type>(
-  query: $Query,
-  exclude: $Exclude,
-) {
-  return query
-}
+export type QueryFilter = (type: Type, archetype: Archetype) => boolean
 
 function maybeInsertRecord<$Type extends Type>(
   records: QueryRecord<$Type>[],
   type: Type,
   layout: $Type,
   archetype: Archetype,
+  filters: QueryFilter[],
 ) {
-  if (typeContains(archetype.type, type)) {
+  if (
+    isSupersetOf(archetype.type, type) &&
+    filters.every(predicate => predicate(type, archetype))
+  ) {
     const columns = layout.map(id => archetype.table[archetype.layout[id]])
     records.push([
       archetype.entities,
@@ -44,13 +42,14 @@ function makeStaticQueryInternal<$Type extends Type>(
   world: World,
   type: Type,
   layout: $Type,
+  filters: QueryFilter[],
 ): Query<$Type> {
   const query: Query<$Type> = []
   invariantTypeNormalized(type)
   // ensure archetype
   findOrMakeArchetype(world, type)
   world.archetypes.forEach(archetype =>
-    maybeInsertRecord(query as QueryRecord<$Type>[], type, layout, archetype),
+    maybeInsertRecord(query as QueryRecord<$Type>[], type, layout, archetype, filters),
   )
   return query
 }
@@ -58,15 +57,27 @@ function makeStaticQueryInternal<$Type extends Type>(
 export function makeStaticQuery<$Type extends Type>(
   world: World,
   layout: $Type,
+  ...filters: QueryFilter[]
 ): Query<$Type> {
-  return makeStaticQueryInternal(world, normalizeType(layout), layout)
+  return makeStaticQueryInternal(world, normalizeType(layout), layout, filters)
 }
 
-export function makeQuery<$Type extends Type>(world: World, layout: $Type): Query<$Type> {
+export function makeQuery<$Type extends Type>(
+  world: World,
+  layout: $Type,
+  ...filters: QueryFilter[]
+): Query<$Type> {
   const type = normalizeType(layout)
-  const query = makeStaticQueryInternal(world, type, layout)
+  const query = makeStaticQueryInternal(world, type, layout, filters)
   world.onArchetypeCreated(archetype =>
-    maybeInsertRecord(query as QueryRecord<$Type>[], type, layout, archetype),
+    maybeInsertRecord(query as QueryRecord<$Type>[], type, layout, archetype, filters),
   )
   return query
+}
+
+export function not(layout: Type) {
+  const type = normalizeType(layout)
+  return function notFilter(_: Type, archetype: Archetype) {
+    return !isSupersetOf(archetype.type, type)
+  }
 }
