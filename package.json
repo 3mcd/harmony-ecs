@@ -1,8 +1,9 @@
 {
   "name": "harmony-ecs",
-  "version": "0.0.2",
+  "author": "Eric McDaniel <eric.g.mcdaniel@gmail.com>",
   "description": "A small archetypal ECS focused on compatibility and performance",
-  "type": "module",
+  "version": "0.0.2",
+  "license": "MIT",
   "types": "./lib/dist/esm/index.d.ts",
   "main": "./lib/dist/cjs/index.js",
   "exports": {
@@ -13,17 +14,22 @@
     "lib/dist"
   ],
   "scripts": {
-    "perf:node": "npm run build && node --es-module-specifier-resolution=node perf/dist/index.js",
+    "perf": "npm run perf:node",
+    "perf:node": "npm run build && ts-node perf/src/index.ts",
     "perf:browser": "npm run build && cd ./perf && vite",
-    "build": "tsc -b lib && tsc -b lib/tsconfig.cjs.json && tsc -b perf",
-    "postbuild": "node lib/build/optimize.js",
+    "build": "tsc -b lib && npm run build:optimize && npm run build:cjs && tsc -b perf",
+    "build:optimize": "node lib/build/optimize.js",
+    "build:cjs": "esbuild --bundle --target=node12.22 --outdir=lib/dist/cjs --format=cjs lib/dist/esm/index.js",
     "prepare": "npm run build",
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "jest"
   },
-  "author": "Eric McDaniel <eric.g.mcdaniel@gmail.com>",
-  "license": "MIT",
   "devDependencies": {
     "@babel/core": "^7.15.5",
+    "@types/jest": "^27.0.1",
+    "esbuild": "^0.12.25",
+    "jest": "^27.1.1",
+    "ts-jest": "^27.0.5",
+    "ts-node": "^10.2.1",
     "typescript": "^4.4.2",
     "vite": "^2.5.3"
   }

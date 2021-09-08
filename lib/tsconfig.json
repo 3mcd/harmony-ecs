@@ -3,5 +3,7 @@
   "compilerOptions": {
     "rootDir": "src",
     "outDir": "dist/esm"
-  }
+  },
+  "include": ["src"],
+  "exclude": ["**/*.spec.ts", "**/__mocks__/**/*"]
 }
