@@ -6,7 +6,6 @@ import {
   moveToArchetype,
   NativeDataOf,
   removeFromArchetype,
-  Type,
 } from "./archetype"
 import { findOrMakeArchetype } from "./archetype_graph"
 import { invariant } from "./debug"
@@ -20,7 +19,7 @@ import {
   SchemaOfId,
   ShapeOf,
 } from "./schema"
-import { addToType, removeFromType } from "./type"
+import { addToType, removeFromType, Type } from "./type"
 import { World } from "./world"
 
 export type Entity = number

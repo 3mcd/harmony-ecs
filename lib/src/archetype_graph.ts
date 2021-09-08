@@ -1,5 +1,6 @@
-import { Archetype, makeArchetype, makeTypeHash, Type, isSupersetOf } from "./archetype"
+import { Archetype, makeArchetype } from "./archetype"
 import { SchemaId } from "./schema"
+import { isSupersetOf, makeTypeHash, Type } from "./type"
 import { World } from "./world"
 
 function makeEdges(left: Archetype, right: Archetype, id: SchemaId) {

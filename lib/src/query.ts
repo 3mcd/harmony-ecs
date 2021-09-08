@@ -1,13 +1,7 @@
-import {
-  Archetype,
-  ArchetypeTable,
-  invariantTypeNormalized,
-  normalizeType,
-  Type,
-  isSupersetOf,
-} from "./archetype"
+import { Archetype, ArchetypeTable } from "./archetype"
 import { findOrMakeArchetype } from "./archetype_graph"
 import { Entity } from "./entity"
+import { invariantTypeNormalized, isSupersetOf, normalizeType, Type } from "./type"
 import { World } from "./world"
 
 export type QueryRecord<$Type extends Type> = [
