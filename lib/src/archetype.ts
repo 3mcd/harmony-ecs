@@ -86,6 +86,7 @@ export type Archetype<$Type extends Type = Type> = {
   type: $Type
   table: ArchetypeTable<$Type>
   layout: number[]
+  length: number
   edgesSet: Archetype[]
   edgesUnset: Archetype[]
 }
@@ -154,7 +155,7 @@ function makeArchetypeColumn<$Schema extends AnySchema>(
     }
   } else {
     // native
-    return [] as ArchetypeColumnOf<$Schema>
+    return Array(size) as ArchetypeColumnOf<$Schema>
   }
 }
 
@@ -174,6 +175,7 @@ export function makeRootArchetype(): Archetype<[]> {
   const entityIndex: number[] = []
   const table: ArchetypeTable<[]> = []
   return {
+    length: 0,
     entities,
     entityIndex,
     edgesSet: [],
@@ -190,13 +192,14 @@ export function makeArchetype<$Type extends Type>(
 ): Archetype<$Type> {
   invariantTypeNormalized(type)
   const entities: Entity[] = []
-  const entityIndex: number[] = []
+  const entityIndex: number[] = Array(world.size)
   const table = makeArchetypeTable(world, type)
   const layout: number[] = []
   for (let i = 0; i < type.length; i++) {
     layout[type[i]] = i
   }
   return {
+    length: 0,
     entities,
     entityIndex,
     edgesSet: [],
@@ -234,6 +237,7 @@ export function insertIntoArchetype<$Type extends Type>(
     }
     archetype.entities[length] = entity
     archetype.entityIndex[entity] = length
+    archetype.length++
   }
 }
 
@@ -292,6 +296,7 @@ export function removeFromArchetype<$Type extends Type>(
     archetype.entities[index] = head
     archetype.entityIndex[head] = index
   }
+  archetype.length--
 }
 
 export function moveToArchetype(
@@ -302,15 +307,26 @@ export function moveToArchetype(
   schema?: AnySchema,
   data?: unknown,
 ) {
+  if (prev.entityIndex[entity] === prev.length - 1) {
+    moveToArchetypePop(world, prev, next, entity, schema, data)
+  } else {
+    moveToArchetypeSwap(world, prev, next, entity, schema, data)
+  }
+}
+
+export function moveToArchetypeSwap(
+  world: World,
+  prev: Archetype,
+  next: Archetype,
+  entity: number,
+  schema?: AnySchema,
+  data?: unknown,
+) {
   const nextType = next.type
-  const nextIndex = next.entities.length
   const prevType = prev.type
-  const prevLength = prev.entities.length
-  const prevEnd = prevLength - 1
+  const prevEnd = next.length - 1
   const prevIndex = prev.entityIndex[entity]
-  const prevHead = prev.entities.pop()
   const set = prevType.length < nextType.length
-  const pop = prevIndex !== prevEnd
 
   let i = 0
   let j = 0
@@ -324,32 +340,21 @@ export function moveToArchetype(
     const hit = prevId === nextId
     if (isBinarySchema(schema)) {
       if (isFormat(schema.shape)) {
-        if (hit) nextColumn[nextIndex] = prevColumn[prevIndex]
-        // TODO(3mcd): this can be optimized, we know `move` ahead of time
-        if (pop) {
-          prevColumn[prevIndex] = 0
-        } else {
-          prevColumn[prevIndex] = prevColumn[prevEnd]
-          prevColumn[prevEnd] = 0
-        }
+        if (hit) nextColumn[next.length] = prevColumn[prevIndex]
+        prevColumn[prevIndex] = prevColumn[prevEnd]
+        prevColumn[prevEnd] = 0
       } else {
         for (const key in schema.shape) {
           const array = prevColumn[key]
-          if (hit) nextColumn[nextIndex] = array[prevIndex]
-          if (pop) {
-            prevColumn[key][prevIndex] = 0
-          } else {
-            prevColumn[key][prevIndex] = prevColumn[key][prevEnd]
-            prevColumn[key][prevEnd] = 0
-          }
+          if (hit) nextColumn[next.length] = array[prevIndex]
+          prevColumn[key][prevIndex] = prevColumn[key][prevEnd]
+          prevColumn[key][prevEnd] = 0
         }
       }
     } else {
       const data = prevColumn.pop()
-      if (hit) nextColumn[nextIndex] = data
-      if (!pop) {
-        prevColumn[prevIndex] = data
-      }
+      if (hit) nextColumn[next.length] = data
+      prevColumn[prevIndex] = data
     }
     if (hit) j++
   }
@@ -359,21 +364,88 @@ export function moveToArchetype(
     const nextColumn = next.table[next.layout[schema.id]]
     if (isBinarySchema(schema)) {
       if (isFormat(schema.shape)) {
-        nextColumn[nextIndex] = data
+        nextColumn[next.length] = data
       } else {
         for (const key in schema.shape) {
-          nextColumn[key][nextIndex] = data[key]
+          nextColumn[key][next.length] = data[key]
         }
       }
     } else {
-      nextColumn[nextIndex] = data
+      nextColumn[next.length] = data
     }
   }
-  next.entities[next.entities.length] = entity
-  next.entityIndex[entity] = next.entities.length
-  prev.entities[prevIndex] = prevHead
-  prev.entityIndex[prevHead] = prevIndex
+  next.entities[next.length] = entity
+  next.entityIndex[entity] = next.length
+  next.length++
+  prev.entities[prevIndex] = prev.entities.pop()
+  prev.entityIndex[entity] = prevIndex
+  prev.length--
+}
+
+export function moveToArchetypePop(
+  world: World,
+  prev: Archetype,
+  next: Archetype,
+  entity: number,
+  schema?: AnySchema,
+  data?: unknown,
+) {
+  const nextType = next.type
+  const prevType = prev.type
+  const prevIndex = prev.entityIndex[entity]
+  const set = prevType.length < nextType.length
+
+  prev.entities.pop()
+
+  let i = 0
+  let j = 0
+
+  for (; i < prevType.length; i++) {
+    const prevId = prevType[i]
+    const nextId = nextType[j]
+    const prevColumn = prev.table[i]
+    const nextColumn = next.table[j]
+    const schema = world.schemaIndex[prevId]
+    const hit = prevId === nextId
+    if (isBinarySchema(schema)) {
+      if (isFormat(schema.shape)) {
+        if (hit) nextColumn[next.length] = prevColumn[prevIndex]
+        // TODO(3mcd): this can be optimized, we know `move` ahead of time
+        prevColumn[prevIndex] = 0
+      } else {
+        for (const key in schema.shape) {
+          const array = prevColumn[key]
+          if (hit) nextColumn[next.length] = array[prevIndex]
+          prevColumn[key][prevIndex] = 0
+        }
+      }
+    } else {
+      const data = prevColumn.pop()
+      if (hit) nextColumn[next.length] = data
+    }
+    if (hit) j++
+  }
+
+  if (set) {
+    invariant(schema !== undefined)
+    const nextColumn = next.table[next.layout[schema.id]]
+    if (isBinarySchema(schema)) {
+      if (isFormat(schema.shape)) {
+        nextColumn[next.length] = data
+      } else {
+        for (const key in schema.shape) {
+          nextColumn[key][next.length] = data[key]
+        }
+      }
+    } else {
+      nextColumn[next.length] = data
+    }
+  }
+  next.entities[next.length] = entity
+  next.entityIndex[entity] = next.length
+  next.length++
   prev.entityIndex[entity] = -1
+  prev.length--
 }
 
 export function grow(archetype: Archetype) {}

@@ -27,14 +27,14 @@ function linkArchetype(left: Archetype, archetype: Archetype) {
 
 function insertArchetype(world: World, type: Type): Archetype {
   const archetype = makeArchetype(world, type)
-  linkArchetype(world.root, archetype)
+  linkArchetype(world.archetypeRoot, archetype)
   world.onArchetypeCreated.dispatch(archetype)
   world.archetypes.set(makeTypeHash(archetype.type), archetype)
   return archetype
 }
 
 export function findOrMakeArchetype(world: World, type: Type) {
-  let archetype = world.root
+  let archetype = world.archetypeRoot
   for (let i = 0; i < type.length; i++) {
     const id = type[i]
     archetype = archetype.edgesSet[id] ?? insertArchetype(world, type.slice(0, i + 1))
