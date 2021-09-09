@@ -3,6 +3,7 @@ import { SchemaId } from "./schema"
 export type Type = ReadonlyArray<SchemaId>
 
 export function addToType(type: Type, add: SchemaId): Type {
+  invariantTypeNormalized(type)
   const next: number[] = []
   let added = false
   for (let i = 0; i < type.length; i++) {
@@ -22,6 +23,7 @@ export function addToType(type: Type, add: SchemaId): Type {
 }
 
 export function removeFromType(type: Type, remove: SchemaId): Type {
+  invariantTypeNormalized(type)
   const next: number[] = []
   for (let i = 0; i < type.length; i++) {
     const e = type[i]
@@ -44,32 +46,90 @@ export function invariantTypeNormalized(type: Type) {
   }
 }
 
-export function isSupersetOf(type: Type, subset: Type) {
-  let i = 0
-  let j = 0
-  if (type.length < subset.length) {
+export function isEqual(outer: Type, inner: Type) {
+  if (outer.length !== inner.length) {
     return false
   }
-  while (i < type.length && j < subset.length) {
-    const typeId = type[i]
-    const subsetTypeId = subset[j]
-    if (typeId < subsetTypeId) {
+  for (let i = 0; i < outer.length; i++) {
+    if (outer[i] !== inner[i]) return false
+  }
+  return true
+}
+
+export function isSupersetOf(outer: Type, inner: Type) {
+  invariantTypeNormalized(outer)
+  invariantTypeNormalized(inner)
+  let o = 0
+  let i = 0
+  if (outer.length <= inner.length) {
+    return false
+  }
+  while (o < outer.length && i < inner.length) {
+    const outerId = outer[o]
+    const innerId = inner[i]
+    if (outerId < innerId) {
+      o++
+    } else if (outerId === innerId) {
+      o++
       i++
-    } else if (typeId === subsetTypeId) {
-      i++
-      j++
     } else {
       return false
     }
   }
-  return j === subset.length
+  return i === inner.length
 }
 
-export function makeTypeHash(type: Type) {
-  let buckets = 97
-  let hash = type.length % buckets
-  for (let i = 0; i < type.length; i++) {
-    hash = (hash + type[i]) % buckets
+export function invariantIsSupersetOf(outer: Type, inner: Type) {
+  if (!isSupersetOf(outer, inner)) {
+    throw new RangeError("type is not superset")
   }
-  return hash
+}
+
+export function maybeSupersetOf(outer: Type, inner: Type) {
+  invariantTypeNormalized(outer)
+  invariantTypeNormalized(inner)
+  let o = 0
+  let i = 0
+  if (outer.length === 0) {
+    return true
+  }
+  while (o < outer.length && i < inner.length) {
+    const outerId = outer[o]
+    const innerId = inner[i]
+    if (outerId < innerId) {
+      o++
+    } else if (outerId === innerId) {
+      o++
+      i++
+    } else {
+      return false
+    }
+  }
+  return true
+}
+
+export function getIdsBetween(outer: Type, inner: Type) {
+  invariantIsSupersetOf(outer, inner)
+  let o = 0
+  let i = 0
+  const path: SchemaId[] = []
+  if (outer.length - inner.length === 1) {
+    let j = 0
+    let length = outer.length
+    for (; j < length && outer[j] === inner[j]; j++) {}
+    path.push(outer[j])
+    return path
+  }
+  while (o < outer.length - 1) {
+    const outerId = outer[o]
+    const innerId = inner[i]
+    if (innerId === undefined || outerId < innerId) {
+      path.push(outerId)
+      o++
+    } else if (outerId === innerId) {
+      o++
+      i++
+    }
+  }
+  return path
 }

@@ -1,36 +1,76 @@
 import { Archetype, makeArchetype } from "./archetype"
 import { SchemaId } from "./schema"
-import { isSupersetOf, makeTypeHash, Type } from "./type"
+import {
+  addToType,
+  getIdsBetween,
+  isSupersetOf,
+  maybeSupersetOf,
+  removeFromType,
+  Type,
+} from "./type"
 import { World } from "./world"
 
-function makeEdges(left: Archetype, right: Archetype, id: SchemaId) {
-  left.edgesSet[id] = right
-  right.edgesUnset[id] = left
+function makeEdge(inner: Archetype, outer: Archetype, id: SchemaId) {
+  inner.edgesSet[id] = outer
+  outer.edgesUnset[id] = inner
 }
 
-function linkArchetype(left: Archetype, archetype: Archetype) {
-  if (left.type.length > archetype.type.length - 1) {
-    return
+function makeLink(world: World, outer: Archetype, inner: Archetype) {
+  const ids = getIdsBetween(outer.type, inner.type)
+  let next = outer
+  for (let i = 0; i < ids.length; i++) {
+    const type = removeFromType(next.type, ids[i])
+    const link = findOrMakeArchetype(world, type)
+    makeEdge(link, next, ids[i])
+    next = link
   }
+}
 
-  if (left.type.length < archetype.type.length - 1) {
-    left.edgesSet.forEach(edge => linkArchetype(edge, archetype))
-    return
+function linkArchetype(world: World, archetype: Archetype, inserting: Archetype) {
+  if (isSupersetOf(archetype.type, inserting.type)) {
+    makeLink(world, archetype, inserting)
+  } else if (isSupersetOf(inserting.type, archetype.type)) {
+    makeLink(world, inserting, archetype)
   }
-
-  if (left.type.length === 0 || isSupersetOf(archetype.type, left.type)) {
-    let i = 0
-    let length = archetype.type.length
-    for (; i < length && left.type[i] === archetype.type[i]; i++);
-    makeEdges(left, archetype, archetype.type[i])
+  // recurse into paths leading to potential supersets
+  if (maybeSupersetOf(archetype.type, inserting.type)) {
+    archetype.edgesSet.forEach(right => linkArchetype(world, right, inserting))
   }
 }
 
 function insertArchetype(world: World, type: Type): Archetype {
   const archetype = makeArchetype(world, type)
-  linkArchetype(world.archetypeRoot, archetype)
-  world.onArchetypeCreated.dispatch(archetype)
-  world.archetypes.set(makeTypeHash(archetype.type), archetype)
+  linkArchetype(world, world.archetypeRoot, archetype)
+  const visited = new Set<Archetype>()
+  const stack: (Archetype | number)[] = [0, archetype]
+  let i = stack.length
+  while (i > 0) {
+    const node = stack[--i] as Archetype
+    const index = stack[--i] as number
+    if (index < node.edgesUnset.length - 1) {
+      stack[i++] = index + 1
+      stack[i++] = node
+    }
+    const next = node.edgesUnset[index]
+    if (next && !visited.has(next)) {
+      visited.add(next)
+      next.onArchetypeInsert.dispatch(archetype)
+      stack[i++] = 0
+      stack[i++] = next
+    }
+  }
+  return archetype
+}
+
+export function findArchetype(world: World, type: Type) {
+  let archetype = world.archetypeRoot
+  for (let i = 0; i < type.length; i++) {
+    const id = type[i]
+    archetype = archetype.edgesSet[id]
+    if (archetype === undefined) {
+      return null
+    }
+  }
   return archetype
 }
 

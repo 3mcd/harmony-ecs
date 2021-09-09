@@ -6,13 +6,19 @@ I wrote a short article that describes the motivation for this project called _[
 
 Harmony will eventually be incorporated into [Javelin](https://github.com/3mcd/javelin), a more feature-rich ECS focused on multiplayer game development. Use at your own risk: the library is in a phase of early development so things will break often!
 
+## Installation
+
+```sh
+npm install harmony-ecs
+```
+
 ## Features
 
 - Written in TypeScript
 - Hybrid struct-of-array `{x: [0]}` and array-of-struct `[{x: 0}]` storage
 - Data flexibility e.g., `1.23` and `{position: {x: 1.23}}` are both valid components
 - Fast iteration and mutation ([benchmarks](https://github.com/3mcd/ecs-benchmark/tree/harmony-ecs))
-- Fast insert/relocate via archetype graph
+- Fast insert/relocate and auto-updating queries via [complete archetype graph](./graph.png)
 - Compatible with third-party libraries like Three.js, Cannon, etc.
 
 ## Examples

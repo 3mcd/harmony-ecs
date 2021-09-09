@@ -2,8 +2,6 @@
   "extends": "../tsconfig.json",
   "compilerOptions": {
     "rootDir": "src",
-    "outDir": "dist",
-    "module": "commonjs",
     "noEmit": true
   },
   "references": [{ "path": "../lib" }]

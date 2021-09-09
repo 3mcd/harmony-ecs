@@ -1,3 +1,4 @@
+import { makeSignal } from "."
 import { invariant } from "./debug"
 import { Entity } from "./entity"
 import {
@@ -10,6 +11,7 @@ import {
   SchemaId,
   ShapeOf,
 } from "./schema"
+import { Signal } from "./signal"
 import { invariantTypeNormalized, Type } from "./type"
 import { InstanceOf } from "./types"
 import { World } from "./world"
@@ -80,14 +82,15 @@ export type ArchetypeTable<$Type extends Type> = {
  * a collection of entities which share components of the same type
  */
 export type Archetype<$Type extends Type = Type> = {
-  entities: Entity[]
-  entityIndex: number[]
-  type: $Type
-  table: ArchetypeTable<$Type>
-  layout: number[]
-  length: number
   edgesSet: Archetype[]
   edgesUnset: Archetype[]
+  entities: Entity[]
+  entityIndex: number[]
+  layout: number[]
+  length: number
+  onArchetypeInsert: Signal<Archetype>
+  table: ArchetypeTable<$Type>
+  type: $Type
 }
 
 /**
@@ -174,14 +177,15 @@ export function makeRootArchetype(): Archetype<[]> {
   const entityIndex: number[] = []
   const table: ArchetypeTable<[]> = []
   return {
-    length: 0,
-    entities,
-    entityIndex,
     edgesSet: [],
     edgesUnset: [],
+    entities,
+    entityIndex,
     layout: [],
-    type: [],
+    length: 0,
+    onArchetypeInsert: makeSignal(),
     table,
+    type: [],
   }
 }
 
@@ -198,14 +202,15 @@ export function makeArchetype<$Type extends Type>(
     layout[type[i]] = i
   }
   return {
-    length: 0,
-    entities,
-    entityIndex,
     edgesSet: [],
     edgesUnset: [],
+    entities,
+    entityIndex,
     layout,
-    type,
+    length: 0,
+    onArchetypeInsert: makeSignal(),
     table,
+    type,
   }
 }
 
@@ -236,8 +241,8 @@ export function insertIntoArchetype<$Type extends Type>(
     }
     archetype.entities[length] = entity
     archetype.entityIndex[entity] = length
-    archetype.length++
   }
+  archetype.length++
 }
 
 export function removeFromArchetype<$Type extends Type>(

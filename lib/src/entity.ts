@@ -19,7 +19,7 @@ import {
   SchemaOfId,
   ShapeOf,
 } from "./schema"
-import { addToType, removeFromType, Type } from "./type"
+import { addToType, normalizeType, removeFromType, Type } from "./type"
 import { World } from "./world"
 
 export type Entity = number
@@ -69,9 +69,10 @@ function initializeType<$Type extends Type>(
 
 export function makeEntity<$Type extends Type>(
   world: World,
-  type: $Type,
-  data: ArchetypeDataOf<$Type> = initializeType(world, type),
+  layout: $Type,
+  data: ArchetypeDataOf<$Type> = initializeType(world, layout),
 ) {
+  const type = normalizeType(layout)
   const entity = world.entityHead++
   const archetype = findOrMakeArchetype(world, type)
   insertIntoArchetype(world, archetype, entity, data)
