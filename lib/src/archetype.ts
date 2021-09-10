@@ -37,6 +37,16 @@ type BinaryColumnOf<$Shape extends ShapeOf<BinarySchema>> = $Shape extends Forma
         : never
     }
 
+type Fuck<$Shape extends ShapeOf<NativeSchema>> = $Shape extends Format
+  ? number[]
+  : {
+      [K in keyof $Shape]: $Shape[K] extends Format
+        ? number
+        : $Shape[K] extends ShapeOf<NativeSchema>
+        ? Fuck<$Shape[K]>
+        : never
+    }
+
 /**
  * an archetype table column which stores entity data in arrays of built-in
  * types (i.e. objects and IEEE 754 float64)
@@ -51,22 +61,16 @@ type BinaryColumnOf<$Shape extends ShapeOf<BinarySchema>> = $Shape extends Forma
  */
 type NativeColumnOf<$Shape extends ShapeOf<NativeSchema>> = $Shape extends Format
   ? number[]
-  : {
-      [K in keyof $Shape]: $Shape[K] extends Format
-        ? number
-        : $Shape[K] extends ShapeOf<NativeSchema>
-        ? NativeColumnOf<$Shape[K]>
-        : never
-    }[]
+  : Fuck<$Shape>[]
 
 /**
  * pivot on a schema's storage type (binary or native) to produce an
  * appropriate archetype column
  */
-export type ArchetypeColumnOf<$Schema extends AnySchema> = $Schema extends BinarySchema
-  ? BinaryColumnOf<ShapeOf<$Schema>>
-  : $Schema extends NativeSchema
+export type ArchetypeColumnOf<$Schema extends AnySchema> = $Schema extends NativeSchema
   ? NativeColumnOf<ShapeOf<$Schema>>
+  : $Schema extends BinarySchema
+  ? BinaryColumnOf<ShapeOf<$Schema>>
   : never
 
 /**
