@@ -12,7 +12,7 @@ Harmony will eventually be incorporated into [Javelin](https://github.com/3mcd/j
 - Hybrid struct-of-array `{x: [0]}` and array-of-struct `[{x: 0}]` storage
 - Data flexibility e.g., `1.23` and `{position: {x: 1.23}}` are both valid components
 - Fast iteration and mutation ([benchmarks](https://github.com/3mcd/ecs-benchmark/tree/harmony-ecs))
-- Fast insert/relocate and auto-updating queries via [complete archetype graph](./graph.png)
+- Fast insert/relocate and auto-updating queries via [connected archetype graph](./graph.png)
 - Compatible with third-party libraries like Three.js, Cannon, etc.
 
 ## Installation
