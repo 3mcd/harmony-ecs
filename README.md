@@ -1,16 +1,10 @@
 # harmony-ecs
 
-A small archetypal ECS focused on compatibility and performance. Harmony has a small footprint, making it a good set of building blocks to make a full ECS with.
+An archetypal ECS focused on compatibility and performance. Harmony has a small footprint, making it a good set of building blocks to make a full ECS with.
 
 I wrote a short article that describes the motivation for this project called _[ECS in JS – Storage Mechanisms](https://javelin.hashnode.dev/ecs-in-js-storage-mechanisms)_.
 
 Harmony will eventually be incorporated into [Javelin](https://github.com/3mcd/javelin), a more feature-rich ECS focused on multiplayer game development. Use at your own risk: the library is in a phase of early development so things will break often!
-
-## Installation
-
-```sh
-npm install harmony-ecs
-```
 
 ## Features
 
@@ -20,6 +14,16 @@ npm install harmony-ecs
 - Fast iteration and mutation ([benchmarks](https://github.com/3mcd/ecs-benchmark/tree/harmony-ecs))
 - Fast insert/relocate and auto-updating queries via [complete archetype graph](./graph.png)
 - Compatible with third-party libraries like Three.js, Cannon, etc.
+
+## Installation
+
+```sh
+npm install harmony-ecs
+```
+
+## Documentation
+
+Some nascent documentation resides on the repository [wiki](https://github.com/3mcd/harmony-ecs/wiki).
 
 ## Examples
 

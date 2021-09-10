@@ -8,7 +8,7 @@ import {
   removeFromArchetype,
 } from "./archetype"
 import { findOrMakeArchetype } from "./archetype_graph"
-import { invariant } from "./debug"
+import { assert, invariant } from "./debug"
 import {
   AnySchema,
   BinarySchema,
@@ -84,6 +84,7 @@ export function destroyEntity(world: World, entity: Entity) {
   const prev = world.entityIndex[entity]
   invariant(prev !== undefined)
   removeFromArchetype(world, prev, entity)
+  world.entityIndex[entity] = null
 }
 
 export function set<$SchemaId extends SchemaId>(

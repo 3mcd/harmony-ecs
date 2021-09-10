@@ -17,21 +17,21 @@ function makeFixture() {
 
   const types = [
     [A, B, C],
-    // [A],
-    // [C],
-    // [F],
-    // [A, B],
-    // [A, C],
-    // [B, C],
-    // [B, F],
-    // [A, C, E],
-    // [B, D, F],
-    // [E, F],
-    // [A, C, E, F],
-    // [B, C, D, F],
-    // [C, D, E, F],
-    // [B, C, D, E, F],
-    // [A, B, C, D, E, F],
+    [A],
+    [C],
+    [F],
+    [A, B],
+    [A, C],
+    [B, C],
+    [B, F],
+    [A, C, E],
+    [B, D, F],
+    [E, F],
+    [A, C, E, F],
+    [B, C, D, F],
+    [C, D, E, F],
+    [B, C, D, E, F],
+    [A, B, C, D, E, F],
   ]
   return { world, types }
 }
@@ -76,10 +76,8 @@ function insertGraphData(
     nodes.add(archetype)
   }
   archetype.edgesSet.forEach(a => {
-    if (archetype.type.length > 0) {
-      const inner = a.type.toString()
-      edges.push({ from: outer, to: inner })
-    }
+    const inner = a.type.toString()
+    edges.push({ from: outer, to: inner })
     insertGraphData(a, nodes, edges)
   })
 }
