@@ -93,6 +93,7 @@ export type Archetype<$Type extends Type = Type> = {
   layout: number[]
   length: number
   onArchetypeInsert: Signal<Archetype>
+  onSet: Signal<Entity>
   table: ArchetypeTable<$Type>
   type: $Type
 }
@@ -161,7 +162,7 @@ function makeArchetypeColumn<$Schema extends AnySchema>(
     }
   } else {
     // native
-    return Array(size) as ArchetypeColumnOf<$Schema>
+    return [] as ArchetypeColumnOf<$Schema>
   }
 }
 
@@ -188,6 +189,7 @@ export function makeRootArchetype(): Archetype<[]> {
     layout: [],
     length: 0,
     onArchetypeInsert: makeSignal(),
+    onSet: makeSignal(),
     table,
     type: [],
   }
@@ -213,6 +215,7 @@ export function makeArchetype<$Type extends Type>(
     layout,
     length: 0,
     onArchetypeInsert: makeSignal(),
+    onSet: makeSignal(),
     table,
     type,
   }
@@ -245,6 +248,7 @@ export function insertIntoArchetype<$Type extends Type>(
     }
     archetype.entities[length] = entity
     archetype.entityIndex[entity] = length
+    archetype.onSet.dispatch(entity)
   }
   archetype.length++
 }
@@ -352,10 +356,10 @@ export function moveToArchetypeSwap(
         prevColumn[prevEnd] = 0
       } else {
         for (const key in schema.shape) {
-          const array = prevColumn[key]
-          if (hit) nextColumn[next.length] = array[prevIndex]
-          prevColumn[key][prevIndex] = prevColumn[key][prevEnd]
-          prevColumn[key][prevEnd] = 0
+          const prevArray = prevColumn[key]
+          if (hit) nextColumn[key][next.length] = prevArray[prevIndex]
+          prevArray[prevIndex] = prevArray[prevEnd]
+          prevArray[prevEnd] = 0
         }
       }
     } else {
@@ -381,6 +385,7 @@ export function moveToArchetypeSwap(
       nextColumn[next.length] = data
     }
   }
+  next.onSet.dispatch(entity)
   next.entities[next.length] = entity
   next.entityIndex[entity] = next.length
   next.length++
@@ -421,9 +426,9 @@ export function moveToArchetypePop(
         prevColumn[prevIndex] = 0
       } else {
         for (const key in schema.shape) {
-          const array = prevColumn[key]
-          if (hit) nextColumn[next.length] = array[prevIndex]
-          prevColumn[key][prevIndex] = 0
+          const prevArray = prevColumn[key]
+          if (hit) nextColumn[key][next.length] = prevArray[prevIndex]
+          prevArray[prevIndex] = 0
         }
       }
     } else {
@@ -448,6 +453,7 @@ export function moveToArchetypePop(
       nextColumn[next.length] = data
     }
   }
+  next.onSet.dispatch(entity)
   next.entities[next.length] = entity
   next.entityIndex[entity] = next.length
   next.length++

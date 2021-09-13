@@ -6,7 +6,7 @@ import { Archetype } from "../../../lib/src/archetype"
 import { makePerfOnce } from "../perf"
 
 function makeFixture() {
-  const world = makeWorld(0)
+  const world = makeWorld(1_000_000)
 
   const A = makeBinarySchema(world, {})
   const B = makeBinarySchema(world, {})
@@ -39,13 +39,18 @@ function makeFixture() {
 const results: number[] = []
 
 let world: World
+let e = 0
 
-for (let i = 0; i < 100; i++) {
+for (let i = 0; i < 10; i++) {
   const fixture = makeFixture()
   world = fixture.world
   const start = performance.now()
-  for (let i = 0; i < fixture.types.length; i++) {
-    makeEntity(world, fixture.types[i])
+  for (let i = fixture.types.length - 1; i >= 0; i--) {
+    const count = Math.random() * 100
+    for (let j = 0; j < count; j++) {
+      makeEntity(world, fixture.types[i])
+      e++
+    }
   }
   const end = performance.now()
   results.push(end - start)
@@ -64,6 +69,10 @@ console.log(
     getUniqueArchetypes(world.archetypeRoot).size
   } archetype insert took ${avgTime.toFixed(2)}ms`,
 )
+
+function getColor(value: number) {
+  return ["hsl(", ((1 - value) * 120).toString(10), ",100%,50%)"].join("")
+}
 
 function insertGraphData(
   archetype: Archetype,
@@ -93,11 +102,21 @@ if (typeof window === "object") {
       Array.from(nodes).map(archetype => ({
         id: archetype.type.toString(),
         label: `(${archetype.type.map(x => String.fromCharCode(65 + x))})`,
+        color: getColor(archetype.entities.length / 100),
       })),
     ),
     edges: new DataSet(edges),
   }
-  const options = {}
+  const options = {
+    layout: {
+      randomSeed: 1,
+      improvedLayout: true,
+      hierarchical: {
+        direction: "LR",
+        sortMethod: "directed",
+      },
+    },
+  }
   const network = new Network(container, data, options)
 }
 

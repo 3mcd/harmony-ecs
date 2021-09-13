@@ -1,4 +1,10 @@
 export { destroyEntity, makeEntity, set, unset } from "./entity"
+export {
+  makeEntityManager,
+  deferSet,
+  deferUnset,
+  applyDeferredOps,
+} from "./entity_manager"
 export { makeQuery, makeStaticQuery, not } from "./query"
 export { formats, makeBinarySchema, makeSchema } from "./schema"
 export { makeSignal } from "./signal"

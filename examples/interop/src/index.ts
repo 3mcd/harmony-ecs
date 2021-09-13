@@ -1,9 +1,16 @@
 import * as Cannon from "cannon-es"
 import * as Three from "three"
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls"
-import { formats, makeEntity, makeQuery, makeSchema, makeWorld } from "../../../lib/src"
+import {
+  formats,
+  makeEntity,
+  makeQuery,
+  makeSchema,
+  makeWorld,
+  set,
+} from "../../../lib/src"
 
-const world = makeWorld(1_000)
+const BOUNCE_IMPULSE = new Cannon.Vec3(0, 10, 0)
 
 const Vec3 = { x: formats.float64, y: formats.float64, z: formats.float64 }
 const Quaternion = {
@@ -12,14 +19,19 @@ const Quaternion = {
   z: formats.float64,
   w: formats.float64,
 }
-const Body = makeSchema(world, { position: Vec3, quaternion: Quaternion })
-const Mesh = makeSchema(world, { position: Vec3, quaternion: Quaternion })
+const Object3D = { position: Vec3, quaternion: Quaternion }
+const world = makeWorld(1_000)
+const Body = makeSchema(world, Object3D)
+const Mesh = makeSchema(world, Object3D)
+const Bounce = makeSchema(world, { latestBounceTime: formats.float64 })
 const canvas = document.getElementById("game") as HTMLCanvasElement
 const renderer = new Three.WebGLRenderer({ antialias: true, canvas })
 const camera = new Three.PerspectiveCamera(45, 1, 0.1, 2000000)
 const controls = new OrbitControls(camera, renderer.domElement)
 const scene = new Three.Scene()
 const simulation = new Cannon.World({ gravity: new Cannon.Vec3(0, -9.81, 0) })
+const bodies = makeQuery(world, [Body, Mesh] as const)
+const bouncing = makeQuery(world, [Body, Bounce] as const)
 
 scene.add(new Three.AmbientLight(0x404040), new Three.DirectionalLight(0xffffff, 0.5))
 
@@ -54,7 +66,7 @@ function createBox(
 function createGround() {
   return createBox(
     new Cannon.Vec3(0, 0, 0),
-    new Cannon.Vec3(10, 0.1, 10),
+    new Cannon.Vec3(25, 0.1, 25),
     Cannon.Body.STATIC,
     0xffffff,
     0,
@@ -62,42 +74,44 @@ function createGround() {
 }
 
 function copyBodyToMesh(body: Cannon.Body, mesh: Three.Mesh) {
-  mesh.position.x = body.position.x
-  mesh.position.y = body.position.y
-  mesh.position.z = body.position.z
-  mesh.quaternion.x = body.quaternion.x
-  mesh.quaternion.y = body.quaternion.y
-  mesh.quaternion.z = body.quaternion.z
-  mesh.quaternion.w = body.quaternion.w
+  const { x, y, z } = body.interpolatedPosition
+  const { x: qx, y: qy, z: qz, w: qw } = body.interpolatedQuaternion
+  mesh.position.x = x
+  mesh.position.y = y
+  mesh.position.z = z
+  mesh.quaternion.x = qx
+  mesh.quaternion.y = qy
+  mesh.quaternion.z = qz
+  mesh.quaternion.w = qw
 }
 
 function random(scale = 2) {
   return (0.5 - Math.random()) * scale
 }
 
-const bodies = makeQuery(world, [Body, Mesh] as const)
-
 let spawnInit = true
 
 function spawn() {
   if (spawnInit) {
-    // spawn the ground
+    // spawn ground
     makeEntity(world, [Body, Mesh], createGround())
-    // spawn boxes at semi-random points
-    for (let i = 0; i < 10; i++) {
-      makeEntity(
+    // spawn boxes
+    for (let i = 0; i < 100; i++) {
+      const entity = makeEntity(
         world,
         [Body, Mesh],
-        createBox(new Cannon.Vec3(random(20), 20, random(20))),
+        createBox(new Cannon.Vec3(random(25), 20, random(25))),
       )
+      if (i % 2 === 0) set(world, entity, Bounce, { latestBounceTime: 0 })
     }
-    spawnInit = true
+    spawnInit = false
   }
 }
 
 let physicsInit = true
 
 function physics(dt: number) {
+  const now = performance.now()
   if (physicsInit) {
     for (let i = 0; i < bodies.length; i++) {
       const [entities, [b]] = bodies[i]
@@ -111,7 +125,18 @@ function physics(dt: number) {
     }
     physicsInit = false
   }
-  simulation.step(dt / 1000)
+  for (let i = 0; i < bouncing.length; i++) {
+    const [entities, [by, bo]] = bouncing[i]
+    for (let j = 0; j < entities.length; j++) {
+      const bounce = bo[j]
+      const body = by[j] as Cannon.Body
+      if (now - bounce.latestBounceTime >= 2000) {
+        bounce.latestBounceTime = now
+        body.applyLocalImpulse(BOUNCE_IMPULSE)
+      }
+    }
+  }
+  simulation.step(1 / 60, dt / 1000, 5)
 }
 
 let renderInit = true
