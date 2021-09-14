@@ -91,8 +91,10 @@ export type Archetype<$Type extends Type = Type> = {
   entityIndex: number[]
   layout: number[]
   length: number
+  real: boolean
   onArchetypeInsert: Signal<Archetype>
   onSet: Signal<Entity>
+  onRealize: Signal<void>
   table: ArchetypeTable<$Type>
   type: $Type
 }
@@ -191,8 +193,10 @@ export function makeRootArchetype(): Archetype<[]> {
     entityIndex,
     layout: [],
     length: 0,
+    real: true,
     onArchetypeInsert: makeSignal(),
     onSet: makeSignal(),
+    onRealize: makeSignal(),
     table,
     type: [],
   }
@@ -217,8 +221,10 @@ export function makeArchetype<$Type extends Type>(
     entityIndex,
     layout,
     length: 0,
+    real: false,
     onArchetypeInsert: makeSignal(),
     onSet: makeSignal(),
+    onRealize: makeSignal(),
     table,
     type,
   }
@@ -254,6 +260,10 @@ export function insertIntoArchetype<$Type extends Type>(
     archetype.onSet.dispatch(entity)
   }
   archetype.length++
+  if (archetype.real === false) {
+    archetype.real = true
+    archetype.onRealize.dispatch()
+  }
 }
 
 export function removeFromArchetype<$Type extends Type>(
@@ -325,6 +335,10 @@ export function moveToArchetype(
     moveToArchetypePop(world, prev, next, entity, schema, data)
   } else {
     moveToArchetypeSwap(world, prev, next, entity, schema, data)
+  }
+  if (next.real === false) {
+    next.real = true
+    next.onRealize.dispatch()
   }
 }
 

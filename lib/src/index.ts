@@ -1,4 +1,4 @@
-export { Data } from "./archetype"
+export type { Data } from "./archetype"
 export { deleteEntity, makeEntity, set, unset } from "./entity"
 export type { Entity } from "./entity"
 export {

@@ -11,7 +11,21 @@ export type QueryRecord<$Type extends Type> = [
 export type Query<$Type extends Type = Type> = QueryRecord<$Type>[]
 export type QueryFilter = (type: Type, archetype: Archetype) => boolean
 
-function maybeInsertRecord<$Type extends Type>(
+function bindArchetype<$Type extends Type>(
+  records: Query<$Type>,
+  layout: $Type,
+  archetype: Archetype,
+) {
+  const columns = layout.map(id => archetype.table[archetype.layout[id]])
+  records.push([
+    archetype.entities,
+    // TODO(3mcd): unsure how to get TypeScript to agree with this without
+    // casting to unknown
+    columns as unknown as Readonly<ArchetypeTable<$Type>>,
+  ])
+}
+
+function maybeBindArchetype<$Type extends Type>(
   records: Query<$Type>,
   type: Type,
   layout: $Type,
@@ -19,13 +33,14 @@ function maybeInsertRecord<$Type extends Type>(
   filters: QueryFilter[],
 ) {
   if (filters.every(predicate => predicate(type, archetype))) {
-    const columns = layout.map(id => archetype.table[archetype.layout[id]])
-    records.push([
-      archetype.entities,
-      // TODO(3mcd): unsure how to get TypeScript to agree with this without
-      // casting to unknown
-      columns as unknown as Readonly<ArchetypeTable<$Type>>,
-    ])
+    if (archetype.real) {
+      bindArchetype(records, layout, archetype)
+    } else {
+      const unbind = archetype.onRealize(() => {
+        bindArchetype(records, layout, archetype)
+        unbind()
+      })
+    }
   }
 }
 
@@ -38,7 +53,7 @@ function makeStaticQueryInternal<$Type extends Type>(
   const query: Query<$Type> = []
   invariantTypeNormalized(type)
   // insert identity archetype
-  maybeInsertRecord(query, type, layout, identity, filters)
+  maybeBindArchetype(query, type, layout, identity, filters)
   // since the archetype graph can contain cycles, we maintain a set of the
   // archetypes we've visited. this strategy seems naive and can likely be
   // further optimized
@@ -59,7 +74,7 @@ function makeStaticQueryInternal<$Type extends Type>(
     // only recurse into unvisited archetypes
     if (next && !visited.has(next)) {
       visited.add(next)
-      maybeInsertRecord(query, type, layout, next, filters)
+      maybeBindArchetype(query, type, layout, next, filters)
       stack[i++] = 0
       stack[i++] = next
     }
@@ -86,7 +101,7 @@ export function makeQuery<$Type extends Type>(
   const identity = findOrMakeArchetype(world, type)
   const query = makeStaticQueryInternal(type, layout, identity, filters)
   identity.onArchetypeInsert(archetype =>
-    maybeInsertRecord(query, type, layout, archetype, filters),
+    maybeBindArchetype(query, type, layout, archetype, filters),
   )
   return query
 }
