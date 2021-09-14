@@ -18,7 +18,7 @@
     "perf": "npm run perf:node",
     "perf:node": "npm run build && node --loader ts-node/esm --experimental-specifier-resolution=node perf/src/index.ts",
     "perf:browser": "npm run build && cd ./perf && vite",
-    "example:interop": " cd ./examples/interop && vite",
+    "example:compat": " cd ./examples/compat && vite",
     "example:noise": " cd ./examples/noise && vite",
     "build": "tsc -b lib && npm run build:optimize && npm run build:cjs && tsc -b perf",
     "build:optimize": "node lib/build/optimize.js",

@@ -80,7 +80,7 @@ export function makeEntity<$Type extends Type>(
   return entity
 }
 
-export function destroyEntity(world: World, entity: Entity) {
+export function deleteEntity(world: World, entity: Entity) {
   const prev = world.entityIndex[entity]
   invariant(prev !== undefined)
   removeFromArchetype(world, prev, entity)

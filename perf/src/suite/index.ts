@@ -5,4 +5,4 @@ import * as archetypeInsert from "./archetype_insert.perf"
 import * as deferredOps from "./deferred_ops"
 
 // export const suite = { iterBinary, iterHybrid, iterNative, archetypeInsert, deferredOps }
-export const suite = { archetypeInsert }
+export const suite = { deferredOps }

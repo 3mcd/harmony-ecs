@@ -1,4 +1,4 @@
-export { destroyEntity, makeEntity, set, unset } from "./entity"
+export { deleteEntity, makeEntity, set, unset } from "./entity"
 export {
   makeEntityManager,
   deferSet,

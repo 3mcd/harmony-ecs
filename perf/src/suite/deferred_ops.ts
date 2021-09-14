@@ -6,7 +6,7 @@ import {
   makeWorld,
 } from "../../../lib/src"
 import { applyDeferredOps, deferSet } from "../../../lib/src/entity_manager"
-import { makePerfOnce } from "../../dist/perf"
+import { makePerfOnce } from "../perf"
 import { Vector3 } from "./types"
 
 const world = makeWorld(1_000_000)
