@@ -1,20 +1,20 @@
-import { deleteEntity, makeEntity, set, unset, World } from "."
-import { ArchetypeDataOf, DataOf } from "./archetype"
-import { Entity } from "./entity"
-import { SchemaId, SchemaOfId, ShapeOf } from "./schema"
+import { ArchetypeData, Data } from "./archetype"
+import { deleteEntity, Entity, makeEntity, set, unset } from "./entity"
+import { SchemaId } from "./schema"
 import { Type } from "./type"
+import { World } from "./world"
 
-type SetData = DataOf<ShapeOf<SchemaOfId<SchemaId>>>
-type MakeData<$Type extends Type = Type> = [layout: $Type, data?: ArchetypeDataOf<$Type>]
+type SetPayload = Data<SchemaId>
+type MakePayload<$Type extends Type = Type> = [layout: $Type, data?: ArchetypeData<$Type>]
 
 export type EntityManager = {
   setEntities: Entity[]
-  setData: Map<SchemaId, SetData>[]
+  setData: Map<SchemaId, SetPayload>[]
   setIndex: Entity[]
   unsetEntities: Entity[]
   unsetData: Set<SchemaId>[]
   unsetIndex: Entity[]
-  makeData: MakeData[]
+  makeData: MakePayload[]
   deleteEntities: Set<Entity>
 }
 
@@ -34,7 +34,7 @@ export function makeEntityManager(): EntityManager {
 export function deferMakeEntity<$Type extends Type>(
   manager: EntityManager,
   layout: $Type,
-  data?: ArchetypeDataOf<$Type>,
+  data?: ArchetypeData<$Type>,
 ) {
   manager.makeData.push([layout, data])
 }
@@ -43,7 +43,7 @@ export function deferSet<$SchemaId extends SchemaId>(
   manager: EntityManager,
   entity: Entity,
   schemaId: $SchemaId,
-  data: DataOf<ShapeOf<SchemaOfId<$SchemaId>>> | null = null,
+  data: Data<$SchemaId> | null = null,
 ) {
   let entitySetIndex = manager.setIndex[entity]
   let entitySetData = manager.setData[entity]

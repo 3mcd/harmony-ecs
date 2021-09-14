@@ -32,26 +32,21 @@ export type BinarySchema = {
 export type NativeSchema = {
   id: number
   kind: SchemaKind.Native
-  shape: Format | { [key: string]: ShapeOf<NativeSchema> }
+  shape: Format | { [key: string]: Shape<NativeSchema> }
 }
-export type BinarySchemaOf<$Shape extends ShapeOf<BinarySchema>> = {
+export type BinarySchemaOf<$Shape extends Shape<BinarySchema>> = {
   id: number
   kind: SchemaKind.Binary
   shape: $Shape
 }
-export type NativeSchemaOf<$Shape extends ShapeOf<NativeSchema>> = {
+export type NativeSchemaOf<$Shape extends Shape<NativeSchema>> = {
   id: number
   kind: SchemaKind.Native
   shape: $Shape
 }
 export type AnySchema = BinarySchema | NativeSchema
-export type ShapeOf<$Type extends { shape: unknown }> = $Type["shape"]
+export type Shape<$Type extends { shape: unknown }> = $Type["shape"]
 export type SchemaId<$Schema extends AnySchema = AnySchema> = Opaque<Entity, $Schema>
-export type SchemaOfId<$SchemaId extends SchemaId> = $SchemaId extends SchemaId<
-  infer $Schema
->
-  ? $Schema
-  : never
 
 function makeFormat<$Kind extends FormatKind, $Binary extends TypedArrayConstructor>(
   kind: $Kind,
@@ -85,7 +80,7 @@ export const formats = {
 }
 
 // helpers
-export function makeBinarySchema<$Shape extends ShapeOf<BinarySchema>>(
+export function makeBinarySchema<$Shape extends Shape<BinarySchema>>(
   world: World,
   shape: $Shape,
   schemaId?: number,
@@ -98,7 +93,7 @@ export function makeBinarySchema<$Shape extends ShapeOf<BinarySchema>>(
   world.schemaIndex[id] = schema
   return id as SchemaId<BinarySchemaOf<$Shape>>
 }
-export function makeSchema<$Shape extends ShapeOf<NativeSchema>>(
+export function makeSchema<$Shape extends Shape<NativeSchema>>(
   world: World,
   shape: $Shape,
   schemaId?: number,

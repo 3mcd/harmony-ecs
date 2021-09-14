@@ -1,4 +1,3 @@
-import { makeSignal } from "."
 import { invariant } from "./debug"
 import { Entity } from "./entity"
 import {
@@ -9,9 +8,9 @@ import {
   isFormat,
   NativeSchema,
   SchemaId,
-  ShapeOf,
+  Shape,
 } from "./schema"
-import { Signal } from "./signal"
+import { makeSignal, Signal } from "./signal"
 import { invariantTypeNormalized, Type } from "./type"
 import { InstanceOf } from "./types"
 import { World } from "./world"
@@ -29,7 +28,7 @@ import { World } from "./world"
  *   }
  * }
  */
-type BinaryColumnOf<$Shape extends ShapeOf<BinarySchema>> = $Shape extends Format
+type BinaryColumn<$Shape extends Shape<BinarySchema>> = $Shape extends Format
   ? InstanceOf<$Shape["binary"]>
   : {
       [K in keyof $Shape]: $Shape[K] extends Format
@@ -37,13 +36,13 @@ type BinaryColumnOf<$Shape extends ShapeOf<BinarySchema>> = $Shape extends Forma
         : never
     }
 
-type Fuck<$Shape extends ShapeOf<NativeSchema>> = $Shape extends Format
+type NativeObjectColumn<$Shape extends Shape<NativeSchema>> = $Shape extends Format
   ? number[]
   : {
       [K in keyof $Shape]: $Shape[K] extends Format
         ? number
-        : $Shape[K] extends ShapeOf<NativeSchema>
-        ? Fuck<$Shape[K]>
+        : $Shape[K] extends Shape<NativeSchema>
+        ? NativeObjectColumn<$Shape[K]>
         : never
     }
 
@@ -59,18 +58,18 @@ type Fuck<$Shape extends ShapeOf<NativeSchema>> = $Shape extends Format
  *   { id: 1, stats: { strength: 99 } },
  * ]
  */
-type NativeColumnOf<$Shape extends ShapeOf<NativeSchema>> = $Shape extends Format
+type NativeColumn<$Shape extends Shape<NativeSchema>> = $Shape extends Format
   ? number[]
-  : Fuck<$Shape>[]
+  : NativeObjectColumn<$Shape>[]
 
 /**
  * pivot on a schema's storage type (binary or native) to produce an
  * appropriate archetype column
  */
 export type ArchetypeColumnOf<$Schema extends AnySchema> = $Schema extends NativeSchema
-  ? NativeColumnOf<ShapeOf<$Schema>>
+  ? NativeColumn<Shape<$Schema>>
   : $Schema extends BinarySchema
-  ? BinaryColumnOf<ShapeOf<$Schema>>
+  ? BinaryColumn<Shape<$Schema>>
   : never
 
 /**
@@ -102,37 +101,41 @@ export type Archetype<$Type extends Type = Type> = {
  * derive the shape of a value needed to configure (e.g. insert) a binary
  * component from a `BinarySchema`
  */
-export type BinaryDataOf<$Shape extends ShapeOf<BinarySchema>> = $Shape extends Format
+export type BinaryData<$Shape extends Shape<BinarySchema>> = $Shape extends Format
   ? number
   : { [K in keyof $Shape]: number }
 
 /**
  * derive the shape of a native component from a `NativeSchema`
  */
-export type NativeDataOf<$Shape extends ShapeOf<NativeSchema>> = $Shape extends Format
+export type NativeData<$Shape extends Shape<NativeSchema>> = $Shape extends Format
   ? number
   : {
       [K in keyof $Shape]: $Shape[K] extends Format
         ? number
-        : $Shape[K] extends ShapeOf<NativeSchema>
-        ? NativeDataOf<$Shape[K]>
+        : $Shape[K] extends Shape<NativeSchema>
+        ? NativeData<$Shape[K]>
         : never
     }
 
-export type DataOf<$Shape extends ShapeOf<AnySchema>> =
-  $Shape extends ShapeOf<BinarySchema>
-    ? BinaryDataOf<$Shape>
-    : $Shape extends ShapeOf<NativeSchema>
-    ? NativeDataOf<$Shape>
+export type ShapeData<$Shape extends Shape<AnySchema>> =
+  $Shape extends Shape<BinarySchema>
+    ? BinaryData<$Shape>
+    : $Shape extends Shape<NativeSchema>
+    ? NativeData<$Shape>
     : never
+
+export type Data<$SchemaId extends SchemaId> = $SchemaId extends SchemaId<infer $Schema>
+  ? ShapeData<Shape<$Schema>>
+  : never
 
 /**
  * derive a tuple of component shapes by mapping the schema of an archetype
  * type
  */
-export type ArchetypeDataOf<$Type extends Type> = {
+export type ArchetypeData<$Type extends Type> = {
   [K in keyof $Type]: $Type[K] extends SchemaId<infer $Schema>
-    ? DataOf<ShapeOf<$Schema>>
+    ? ShapeData<Shape<$Schema>>
     : never
 }
 
@@ -225,7 +228,7 @@ export function insertIntoArchetype<$Type extends Type>(
   world: World,
   archetype: Archetype<$Type>,
   entity: Entity,
-  data: ArchetypeDataOf<$Type>,
+  data: ArchetypeData<$Type>,
 ) {
   const length = archetype.entities.length
   for (let i = 0; i < archetype.type.length; i++) {

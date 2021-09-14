@@ -1,4 +1,4 @@
-import { formats, makeEntity, makeSchema, makeWorld } from "."
+import { makeEntity } from "./entity"
 import {
   applyDeferredOps,
   deferDeleteEntity,
@@ -7,6 +7,8 @@ import {
   deferUnset,
   makeEntityManager,
 } from "./entity_manager"
+import { formats, makeSchema } from "./schema"
+import { makeWorld } from "./world"
 
 function makeFixture() {
   const world = makeWorld(1)

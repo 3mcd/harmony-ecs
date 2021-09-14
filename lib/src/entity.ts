@@ -1,14 +1,14 @@
 import {
-  ArchetypeDataOf,
-  BinaryDataOf,
-  DataOf,
+  ArchetypeData,
+  BinaryData,
+  Data,
   insertIntoArchetype,
   moveToArchetype,
-  NativeDataOf,
+  NativeData,
   removeFromArchetype,
 } from "./archetype"
 import { findOrMakeArchetype } from "./archetype_graph"
-import { assert, invariant } from "./debug"
+import { invariant } from "./debug"
 import {
   AnySchema,
   BinarySchema,
@@ -16,40 +16,39 @@ import {
   isFormat,
   NativeSchema,
   SchemaId,
-  SchemaOfId,
-  ShapeOf,
+  Shape,
 } from "./schema"
 import { addToType, normalizeType, removeFromType, Type } from "./type"
 import { World } from "./world"
 
 export type Entity = number
 
-function initializeBinaryShape<$Shape extends ShapeOf<BinarySchema>>(
+function initializeBinaryShape<$Shape extends Shape<BinarySchema>>(
   shape: $Shape,
-): BinaryDataOf<$Shape> {
+): BinaryData<$Shape> {
   if (isFormat(shape)) {
-    return 0 as BinaryDataOf<$Shape>
+    return 0 as BinaryData<$Shape>
   }
   const struct: { [key: string]: unknown } = {}
   for (const key in shape) {
     struct[key] = 0
   }
-  return struct as BinaryDataOf<$Shape>
+  return struct as BinaryData<$Shape>
 }
 
-function initializeNativeShape<$Shape extends ShapeOf<NativeSchema>>(
+function initializeNativeShape<$Shape extends Shape<NativeSchema>>(
   shape: $Shape,
-): NativeDataOf<$Shape> {
+): NativeData<$Shape> {
   if (isFormat(shape)) {
-    return 0 as NativeDataOf<$Shape>
+    return 0 as NativeData<$Shape>
   }
   const struct: { [key: string]: unknown } = {}
   for (const key in shape) {
     struct[key] = isFormat(shape)
       ? 0
-      : initializeNativeShape(shape[key] as unknown as ShapeOf<NativeSchema>)
+      : initializeNativeShape(shape[key] as unknown as Shape<NativeSchema>)
   }
-  return struct as NativeDataOf<$Shape>
+  return struct as NativeData<$Shape>
 }
 
 function initializeSchema<$Schema extends AnySchema>(schema: $Schema) {
@@ -61,16 +60,16 @@ function initializeSchema<$Schema extends AnySchema>(schema: $Schema) {
 function initializeType<$Type extends Type>(
   world: World,
   type: $Type,
-): ArchetypeDataOf<$Type> {
+): ArchetypeData<$Type> {
   return type.map(id =>
     initializeSchema(world.schemaIndex[id]),
-  ) as unknown as ArchetypeDataOf<$Type>
+  ) as unknown as ArchetypeData<$Type>
 }
 
 export function makeEntity<$Type extends Type>(
   world: World,
   layout: $Type,
-  data: ArchetypeDataOf<$Type> = initializeType(world, layout),
+  data: ArchetypeData<$Type> = initializeType(world, layout),
 ) {
   const type = normalizeType(layout)
   const entity = world.entityHead++
@@ -91,11 +90,10 @@ export function set<$SchemaId extends SchemaId>(
   world: World,
   entity: Entity,
   id: $SchemaId,
-  data?: DataOf<ShapeOf<SchemaOfId<$SchemaId>>>,
+  data?: Data<$SchemaId>,
 ) {
   const schema = world.schemaIndex[id]
-  const final =
-    data ?? (initializeSchema(schema) as DataOf<ShapeOf<SchemaOfId<$SchemaId>>>)
+  const final = data ?? initializeSchema(schema)
   const prev = world.entityIndex[entity]
   if (prev === undefined) {
     const archetype = findOrMakeArchetype(world, [id])
