@@ -1,4 +1,4 @@
-import { invariant } from "./debug"
+import { assert, invariant } from "./debug"
 import { Entity } from "./entity"
 import {
   BinarySchema,
@@ -286,7 +286,6 @@ export function moveToArchetype<$SchemaId extends SchemaId>(
   schemaId?: $SchemaId,
   data?: Data<$SchemaId>,
 ) {
-  invariant(Math.abs(prev.type.length - next.type.length) === 1)
   if (prev.entityIndex[entity] === prev.length - 1) {
     moveToArchetypePop(prev, next, schemaId, data)
   } else {
@@ -394,15 +393,18 @@ export function moveToArchetypePop<$SchemaId extends SchemaId>(
 ) {
   const entity = prev.entities.pop()
   invariant(entity !== undefined)
-  const prevIndex = prev.entityIndex[entity]
+
+  const prevIndex = prev.length - 1
+  assert(
+    prevIndex === prev.entityIndex[entity],
+    `${entity} ${prev.type} ${next.type} ${prevIndex} ${prev.entityIndex[entity]}`,
+  )
   invariant(prevIndex !== undefined)
   const nextType = next.type
   const prevType = prev.type
   const set = prevType.length < nextType.length
-
   let i = 0
   let j = 0
-
   for (; i < prevType.length; i++) {
     const prevColumn = prev.table[i]
     const nextColumn = next.table[j]
@@ -448,13 +450,11 @@ export function moveToArchetypePop<$SchemaId extends SchemaId>(
     }
     if (hit) j++
   }
-
   if (set) {
     invariant(schemaId !== undefined)
     invariant(data !== undefined)
     insert(next, schemaId, data)
   }
-
   next.entities[next.length] = entity
   next.entityIndex[entity] = next.length
   prev.entityIndex[entity] = -1

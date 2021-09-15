@@ -25,9 +25,9 @@ import {
   findSchemaById,
   getEntityLocation,
   reserveEntity,
-  setEntityLocation,
-  tryGetEntityLocation,
-  unsetEntityLocation,
+  setEntityArchetype,
+  tryGetEntityArchetype,
+  unsetEntityArchetype,
   World,
 } from "./world"
 
@@ -85,7 +85,7 @@ export function makeEntity<$Type extends Type>(
   const entity = reserveEntity(world)
   const archetype = findOrMakeArchetype(world, type)
   insertIntoArchetype(archetype, entity, data)
-  setEntityLocation(world, entity, archetype)
+  setEntityArchetype(world, entity, archetype)
   return entity
 }
 
@@ -93,7 +93,7 @@ export function deleteEntity(world: World, entity: Entity) {
   const prev = world.entityIndex[entity]
   invariant(prev !== undefined)
   removeFromArchetype(prev, entity)
-  unsetEntityLocation(world, entity)
+  unsetEntityArchetype(world, entity)
 }
 
 export function set<$SchemaId extends SchemaId>(
@@ -104,17 +104,17 @@ export function set<$SchemaId extends SchemaId>(
 ) {
   const schema = findSchemaById(world, schemaId)
   const final = data ?? (initializeSchema(schema) as Data<$SchemaId>)
-  const prev = tryGetEntityLocation(world, entity)
+  const prev = tryGetEntityArchetype(world, entity)
   if (prev === undefined) {
     const identity = findOrMakeArchetype(world, [schemaId])
     insertIntoArchetype(identity, entity, [final])
-    setEntityLocation(world, entity, identity)
+    setEntityArchetype(world, entity, identity)
   } else {
     const next =
       traverseSet(prev, schemaId) ??
       findOrMakeArchetype(world, addToType(prev.type, schemaId))
     moveToArchetype(prev, next, entity, schemaId, final)
-    setEntityLocation(world, entity, next)
+    setEntityArchetype(world, entity, next)
   }
 }
 
@@ -127,4 +127,5 @@ export function unset<$SchemaId extends SchemaId>(
   const next =
     traverseUnset(prev, id) ?? findOrMakeArchetype(world, removeFromType(prev.type, id))
   moveToArchetype(prev, next, entity)
+  setEntityArchetype(world, entity, next)
 }

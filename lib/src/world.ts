@@ -37,16 +37,16 @@ export function getEntityLocation(world: World, entity: Entity) {
   return archetype
 }
 
-export function tryGetEntityLocation(world: World, entity: Entity) {
+export function tryGetEntityArchetype(world: World, entity: Entity) {
   const archetype = world.entityIndex[entity]
   return archetype
 }
 
-export function setEntityLocation(world: World, entity: Entity, archetype: Archetype) {
+export function setEntityArchetype(world: World, entity: Entity, archetype: Archetype) {
   world.entityIndex[entity] = archetype
 }
 
-export function unsetEntityLocation(world: World, entity: Entity) {
+export function unsetEntityArchetype(world: World, entity: Entity) {
   world.entityIndex[entity] = undefined
 }
 
