@@ -1,4 +1,4 @@
-import { assert, invariant } from "./debug"
+import { invariant } from "./debug"
 import { Entity } from "./entity"
 import {
   BinarySchema,
@@ -296,13 +296,11 @@ export function moveToArchetypeSwap<$SchemaId extends SchemaId>(
   schemaId?: $SchemaId,
   data?: Data<$SchemaId>,
 ) {
-  const nextLength = next.entities.length
+  const nextIndex = next.entities.length
+  const swapIndex = prev.entities.length - 1
   const prevHead = prev.entities.pop()
-  const nextType = next.type
-  const prevType = prev.type
-  const prevEnd = nextLength - 1
   const prevIndex = prev.entityIndex[entity]
-  const set = prevType.length < nextType.length
+  const set = prev.type.length < next.type.length
 
   invariant(prevHead !== undefined)
   invariant(prevIndex !== undefined)
@@ -310,58 +308,58 @@ export function moveToArchetypeSwap<$SchemaId extends SchemaId>(
   let i = 0
   let j = 0
 
-  for (; i < prevType.length; i++) {
+  for (; i < prev.type.length; i++) {
     const prevColumn = prev.table[i]
     const nextColumn = next.table[j]
     invariant(prevColumn !== undefined)
-    const hit = prevType[i] === nextType[j]
+    const copy = prev.type[i] === next.type[j]
     switch (prevColumn.kind) {
       case SchemaKind.BinarySimple: {
-        if (hit) {
+        if (copy) {
           invariant(nextColumn !== undefined && nextColumn.kind === prevColumn.kind)
-          const copy = prevColumn.data[prevIndex]
-          invariant(copy !== undefined)
-          nextColumn.data[nextLength] = copy
+          const copyValue = prevColumn.data[prevIndex]
+          invariant(copyValue !== undefined)
+          nextColumn.data[nextIndex] = copyValue
         }
-        const move = prevColumn.data[prevEnd]
-        invariant(move !== undefined)
-        prevColumn.data[prevIndex] = move
-        prevColumn.data[prevEnd] = 0
+        const swapValue = prevColumn.data[swapIndex]
+        invariant(swapValue !== undefined)
+        prevColumn.data[prevIndex] = swapValue
+        prevColumn.data[swapIndex] = 0
         break
       }
       case SchemaKind.BinaryComplex:
         for (const key in prevColumn.schema.shape) {
           const prevArray = prevColumn.data[key]
           invariant(prevArray !== undefined)
-          if (hit) {
+          if (copy) {
             invariant(nextColumn !== undefined && nextColumn.kind === prevColumn.kind)
-            const copy = prevArray[prevIndex]
-            invariant(copy !== undefined)
-            const array = nextColumn.data[key]
-            invariant(array !== undefined)
-            array[nextLength] = copy
+            const copyValue = prevArray[prevIndex]
+            invariant(copyValue !== undefined)
+            const nextArray = nextColumn.data[key]
+            invariant(nextArray !== undefined)
+            nextArray[nextIndex] = copyValue
           }
-          const move = prevArray[prevEnd]
-          invariant(move !== undefined)
-          prevArray[prevIndex] = move
-          prevArray[prevEnd] = 0
+          const swapValue = prevArray[swapIndex]
+          invariant(swapValue !== undefined)
+          prevArray[prevIndex] = swapValue
+          prevArray[swapIndex] = 0
         }
         break
       case SchemaKind.NativeSimple:
       case SchemaKind.NativeComplex: {
-        if (hit) {
+        if (copy) {
           invariant(nextColumn !== undefined && nextColumn.kind === prevColumn.kind)
-          const copy = prevColumn.data[prevIndex]
-          invariant(copy !== undefined)
-          nextColumn.data[nextLength] = copy
+          const copyValue = prevColumn.data[prevIndex]
+          invariant(copyValue !== undefined)
+          nextColumn.data[nextIndex] = copyValue
         }
-        const move = prevColumn.data.pop()
-        invariant(move !== undefined)
-        prevColumn.data[prevIndex] = move
+        const swapValue = prevColumn.data.pop()
+        invariant(swapValue !== undefined)
+        prevColumn.data[prevIndex] = swapValue
         break
       }
     }
-    if (hit) j++
+    if (copy) j++
   }
 
   if (set) {
@@ -370,10 +368,11 @@ export function moveToArchetypeSwap<$SchemaId extends SchemaId>(
     insert(next, schemaId, data)
   }
 
-  next.entities[nextLength] = entity
-  next.entityIndex[entity] = nextLength
+  next.entities[nextIndex] = entity
+  next.entityIndex[entity] = nextIndex
   prev.entities[prevIndex] = prevHead
-  prev.entityIndex[entity] = prevIndex
+  prev.entityIndex[prevHead] = prevIndex
+  prev.entityIndex[entity] = -1
 }
 
 export function moveToArchetypePop<$SchemaId extends SchemaId>(
@@ -398,9 +397,9 @@ export function moveToArchetypePop<$SchemaId extends SchemaId>(
       case SchemaKind.BinarySimple:
         if (copy) {
           invariant(nextColumn !== undefined && nextColumn.kind === prevColumn.kind)
-          const value = prevColumn.data[prevIndex]
-          invariant(value !== undefined)
-          nextColumn.data[nextIndex] = value
+          const copyValue = prevColumn.data[prevIndex]
+          invariant(copyValue !== undefined)
+          nextColumn.data[nextIndex] = copyValue
         }
         prevColumn.data[prevIndex] = 0
         break
@@ -411,21 +410,21 @@ export function moveToArchetypePop<$SchemaId extends SchemaId>(
           if (copy) {
             invariant(nextColumn !== undefined && nextColumn.kind === prevColumn.kind)
             const nextArray = nextColumn.data[key]
-            const value = prevArray[prevIndex]
+            const copyValue = prevArray[prevIndex]
             invariant(nextArray !== undefined)
-            invariant(value !== undefined)
-            nextArray[nextIndex] = value
+            invariant(copyValue !== undefined)
+            nextArray[nextIndex] = copyValue
           }
           prevArray[prevIndex] = 0
         }
         break
       case SchemaKind.NativeSimple:
       case SchemaKind.NativeComplex: {
-        const data = prevColumn.data.pop()
+        const copyValue = prevColumn.data.pop()
         if (copy) {
           invariant(nextColumn !== undefined && nextColumn.kind === prevColumn.kind)
-          invariant(data !== undefined)
-          nextColumn.data[nextIndex] = data
+          invariant(copyValue !== undefined)
+          nextColumn.data[nextIndex] = copyValue
         }
         break
       }

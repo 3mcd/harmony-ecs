@@ -114,7 +114,7 @@ function physics(dt: number) {
   const now = performance.now()
   if (physicsInit) {
     for (let i = 0; i < bodies.length; i++) {
-      const [entities, [b]] = bodies[i]
+      const [entities, [b]] = bodies[i]!
       for (let j = 0; j < entities.length; j++) {
         simulation.addBody(
           // manually cast the component to it's true type since we lose type
@@ -126,9 +126,9 @@ function physics(dt: number) {
     physicsInit = false
   }
   for (let i = 0; i < bouncing.length; i++) {
-    const [entities, [by, bo]] = bouncing[i]
+    const [entities, [by, bo]] = bouncing[i]!
     for (let j = 0; j < entities.length; j++) {
-      const bounce = bo[j]
+      const bounce = bo[j]!
       const body = by[j] as Cannon.Body
       if (now - bounce.latestBounceTime >= 2000) {
         bounce.latestBounceTime = now
@@ -149,7 +149,7 @@ function render() {
     camera.position.y = 50
     camera.position.z = 50
     for (let i = 0; i < bodies.length; i++) {
-      const [entities, [, m]] = bodies[i]
+      const [entities, [, m]] = bodies[i]!
       for (let j = 0; j < entities.length; j++) {
         scene.add(m[j] as Three.Mesh)
       }
@@ -157,7 +157,7 @@ function render() {
     renderInit = false
   }
   for (let i = 0; i < bodies.length; i++) {
-    const [entities, [b, m]] = bodies[i]
+    const [entities, [b, m]] = bodies[i]!
     for (let j = 0; j < entities.length; j++) {
       copyBodyToMesh(b[j] as Cannon.Body, m[j] as Three.Mesh)
     }

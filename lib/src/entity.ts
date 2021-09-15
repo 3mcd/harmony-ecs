@@ -113,6 +113,9 @@ export function set<$SchemaId extends SchemaId>(
     const next =
       traverseSet(prev, schemaId) ??
       findOrMakeArchetype(world, addToType(prev.type, schemaId))
+    if (prev.entities[prev.entities.length - 1] === undefined) {
+      debugger
+    }
     moveToArchetype(prev, next, entity, schemaId, final)
     setEntityArchetype(world, entity, next)
   }
