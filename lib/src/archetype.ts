@@ -89,7 +89,6 @@ export type Archetype<$Type extends Type = Type> = {
   entities: Entity[]
   entityIndex: number[]
   layout: number[]
-  length: number
   real: boolean
   onArchetypeInsert: Signal<Archetype>
   onRealize: Signal<void>
@@ -147,7 +146,6 @@ export function makeRootArchetype(): Archetype {
     entities: [],
     entityIndex: [],
     layout: [],
-    length: 0,
     real: false,
     onArchetypeInsert: makeSignal(),
     onRealize: makeSignal(),
@@ -176,7 +174,6 @@ export function makeArchetype<$Type extends Type>(
     entities,
     entityIndex,
     layout,
-    length: 0,
     real: false,
     onArchetypeInsert: makeSignal(),
     onRealize: makeSignal(),
@@ -190,7 +187,7 @@ export function insertIntoArchetype<$Type extends Type>(
   entity: Entity,
   data: ArchetypeData<$Type>,
 ) {
-  const length = archetype.entities.length
+  const index = archetype.entities.length
   for (let i = 0; i < archetype.type.length; i++) {
     const schemaId = archetype.type[i]
     const value = data[i]
@@ -198,9 +195,8 @@ export function insertIntoArchetype<$Type extends Type>(
     invariant(value !== undefined)
     insert(archetype, schemaId, value)
   }
-  archetype.entities[length] = entity
-  archetype.entityIndex[entity] = length
-  archetype.length++
+  archetype.entities[index] = entity
+  archetype.entityIndex[entity] = index
   if (archetype.real === false) {
     archetype.real = true
     archetype.onRealize.dispatch()
@@ -208,26 +204,26 @@ export function insertIntoArchetype<$Type extends Type>(
 }
 
 export function removeFromArchetype(archetype: Archetype, entity: number) {
-  const currIndex = archetype.entityIndex[entity]
-  const currHead = archetype.entities.pop()
+  const index = archetype.entityIndex[entity]
+  const head = archetype.entities.pop()
 
-  invariant(currIndex !== undefined)
-  invariant(currHead !== undefined)
+  invariant(index !== undefined)
+  invariant(head !== undefined)
 
-  if (currIndex === archetype.length - 1) {
-    // entity was head
-    for (let i = 0; i < archetype.type.length; i++) {
+  if (entity === head) {
+    // pop
+    for (let i = 0; i < archetype.table.length; i++) {
       const column = archetype.table[i]
       invariant(column !== undefined)
       switch (column.kind) {
         case SchemaKind.BinarySimple:
-          column.data[currIndex] = 0
+          column.data[index] = 0
           break
         case SchemaKind.BinaryComplex:
           for (const key in column.schema.shape) {
             const array = column.data[key]
             invariant(array !== undefined)
-            array[currIndex] = 0
+            array[index] = 0
           }
           break
         case SchemaKind.NativeSimple:
@@ -237,42 +233,42 @@ export function removeFromArchetype(archetype: Archetype, entity: number) {
       }
     }
   } else {
-    const src = archetype.length - 1
-    for (let i = 0; i < archetype.type.length; i++) {
+    // swap
+    const from = archetype.entities.length - 1
+    for (let i = 0; i < archetype.table.length; i++) {
       const column = archetype.table[i]
       invariant(column !== undefined)
       switch (column.kind) {
         case SchemaKind.BinarySimple:
-          const data = column.data[src]
+          const data = column.data[from]
           invariant(data !== undefined)
-          column.data[src] = 0
-          column.data[currIndex] = data
+          column.data[from] = 0
+          column.data[index] = data
           break
         case SchemaKind.BinaryComplex:
           for (const key in column.schema.shape) {
             const array = column.data[key]
             invariant(array !== undefined)
-            const data = array[src]
+            const data = array[from]
             invariant(data !== undefined)
-            array[src] = 0
-            array[currIndex] = data
+            array[from] = 0
+            array[index] = data
           }
           break
         case SchemaKind.NativeSimple:
         case SchemaKind.NativeComplex: {
           const data = column.data.pop()
           invariant(data !== undefined)
-          column.data[currIndex] = data
+          column.data[index] = data
           break
         }
       }
     }
-    archetype.entities[currIndex] = currHead
-    archetype.entityIndex[currHead] = currIndex
+    archetype.entities[index] = head
+    archetype.entityIndex[head] = index
   }
 
   archetype.entityIndex[entity] = -1
-  archetype.length--
 }
 
 export function moveToArchetype<$SchemaId extends SchemaId>(
@@ -282,7 +278,7 @@ export function moveToArchetype<$SchemaId extends SchemaId>(
   schemaId?: $SchemaId,
   data?: Data<$SchemaId>,
 ) {
-  if (prev.entityIndex[entity] === prev.length - 1) {
+  if (prev.entityIndex[entity] === prev.entities.length - 1) {
     moveToArchetypePop(prev, next, schemaId, data)
   } else {
     moveToArchetypeSwap(prev, next, entity, schemaId, data)
@@ -300,10 +296,11 @@ export function moveToArchetypeSwap<$SchemaId extends SchemaId>(
   schemaId?: $SchemaId,
   data?: Data<$SchemaId>,
 ) {
+  const nextLength = next.entities.length
   const prevHead = prev.entities.pop()
   const nextType = next.type
   const prevType = prev.type
-  const prevEnd = next.length - 1
+  const prevEnd = nextLength - 1
   const prevIndex = prev.entityIndex[entity]
   const set = prevType.length < nextType.length
 
@@ -324,7 +321,7 @@ export function moveToArchetypeSwap<$SchemaId extends SchemaId>(
           invariant(nextColumn !== undefined && nextColumn.kind === prevColumn.kind)
           const copy = prevColumn.data[prevIndex]
           invariant(copy !== undefined)
-          nextColumn.data[next.length] = copy
+          nextColumn.data[nextLength] = copy
         }
         const move = prevColumn.data[prevEnd]
         invariant(move !== undefined)
@@ -342,7 +339,7 @@ export function moveToArchetypeSwap<$SchemaId extends SchemaId>(
             invariant(copy !== undefined)
             const array = nextColumn.data[key]
             invariant(array !== undefined)
-            array[next.length] = copy
+            array[nextLength] = copy
           }
           const move = prevArray[prevEnd]
           invariant(move !== undefined)
@@ -356,7 +353,7 @@ export function moveToArchetypeSwap<$SchemaId extends SchemaId>(
           invariant(nextColumn !== undefined && nextColumn.kind === prevColumn.kind)
           const copy = prevColumn.data[prevIndex]
           invariant(copy !== undefined)
-          nextColumn.data[next.length] = copy
+          nextColumn.data[nextLength] = copy
         }
         const move = prevColumn.data.pop()
         invariant(move !== undefined)
@@ -373,12 +370,10 @@ export function moveToArchetypeSwap<$SchemaId extends SchemaId>(
     insert(next, schemaId, data)
   }
 
-  next.entities[next.length] = entity
-  next.entityIndex[entity] = next.length
+  next.entities[nextLength] = entity
+  next.entityIndex[entity] = nextLength
   prev.entities[prevIndex] = prevHead
   prev.entityIndex[entity] = prevIndex
-  prev.length--
-  next.length++
 }
 
 export function moveToArchetypePop<$SchemaId extends SchemaId>(
@@ -387,32 +382,25 @@ export function moveToArchetypePop<$SchemaId extends SchemaId>(
   schemaId?: $SchemaId,
   data?: Data<$SchemaId>,
 ) {
+  const prevIndex = prev.entities.length - 1
+  const nextIndex = next.entities.length
   const entity = prev.entities.pop()
+  const set = prev.type.length < next.type.length
   invariant(entity !== undefined)
-
-  const prevIndex = prev.length - 1
-  assert(
-    prevIndex === prev.entityIndex[entity],
-    `${entity} ${prev.type} ${next.type} ${prevIndex} ${prev.entityIndex[entity]}`,
-  )
-  invariant(prevIndex !== undefined)
-  const nextType = next.type
-  const prevType = prev.type
-  const set = prevType.length < nextType.length
   let i = 0
   let j = 0
-  for (; i < prevType.length; i++) {
+  for (; i < prev.type.length; i++) {
     const prevColumn = prev.table[i]
     const nextColumn = next.table[j]
     invariant(prevColumn !== undefined)
-    const hit = prevType[i] === nextType[j]
+    const copy = prev.type[i] === next.type[j]
     switch (prevColumn.kind) {
       case SchemaKind.BinarySimple:
-        if (hit) {
+        if (copy) {
           invariant(nextColumn !== undefined && nextColumn.kind === prevColumn.kind)
           const value = prevColumn.data[prevIndex]
           invariant(value !== undefined)
-          nextColumn.data[next.length] = value
+          nextColumn.data[nextIndex] = value
         }
         prevColumn.data[prevIndex] = 0
         break
@@ -420,13 +408,13 @@ export function moveToArchetypePop<$SchemaId extends SchemaId>(
         for (const key in prevColumn.schema.shape) {
           const prevArray = prevColumn.data[key]
           invariant(prevArray !== undefined)
-          if (hit) {
+          if (copy) {
             invariant(nextColumn !== undefined && nextColumn.kind === prevColumn.kind)
-            const array = nextColumn.data[key]
+            const nextArray = nextColumn.data[key]
             const value = prevArray[prevIndex]
-            invariant(array !== undefined)
+            invariant(nextArray !== undefined)
             invariant(value !== undefined)
-            array[next.length] = value
+            nextArray[nextIndex] = value
           }
           prevArray[prevIndex] = 0
         }
@@ -434,28 +422,26 @@ export function moveToArchetypePop<$SchemaId extends SchemaId>(
       case SchemaKind.NativeSimple:
       case SchemaKind.NativeComplex: {
         const data = prevColumn.data.pop()
-        if (hit) {
+        if (copy) {
           invariant(nextColumn !== undefined && nextColumn.kind === prevColumn.kind)
           invariant(data !== undefined)
-          nextColumn.data[next.length] = data
+          nextColumn.data[nextIndex] = data
         }
         break
       }
       default:
         break
     }
-    if (hit) j++
+    if (copy) j++
   }
   if (set) {
     invariant(schemaId !== undefined)
     invariant(data !== undefined)
     insert(next, schemaId, data)
   }
-  next.entities[next.length] = entity
-  next.entityIndex[entity] = next.length
+  next.entities[nextIndex] = entity
+  next.entityIndex[entity] = nextIndex
   prev.entityIndex[entity] = -1
-  prev.length--
-  next.length++
 }
 
 function insert<$SchemaId extends SchemaId>(
@@ -463,6 +449,7 @@ function insert<$SchemaId extends SchemaId>(
   schemaId: $SchemaId,
   data: Data<$SchemaId>,
 ) {
+  const length = archetype.entities.length
   const columnIndex = archetype.layout[schemaId as number]
   invariant(columnIndex !== undefined)
   const column = archetype.table[columnIndex]
@@ -470,22 +457,22 @@ function insert<$SchemaId extends SchemaId>(
   switch (column.kind) {
     case SchemaKind.BinarySimple:
       invariant(typeof data === "number")
-      column.data[archetype.length] = data
+      column.data[length] = data
       break
     case SchemaKind.BinaryComplex:
       for (const key in column.schema.shape) {
         invariant(typeof data === "object")
-        const array = column.data[key]
+        const nextArray = column.data[key]
         const value = data[key]
-        invariant(array !== undefined)
+        invariant(nextArray !== undefined)
         invariant(typeof value === "number")
-        array[archetype.length] = value
+        nextArray[length] = value
       }
       break
     case SchemaKind.NativeSimple:
     case SchemaKind.NativeComplex:
       invariant(typeof data === "number" || typeof data === "object")
-      column.data[archetype.length] = data
+      column.data[length] = data
       break
   }
 }

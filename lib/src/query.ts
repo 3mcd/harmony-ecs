@@ -49,9 +49,9 @@ function maybeBindArchetype<$Type extends Type>(
     if (archetype.real) {
       bindArchetype(records, layout, archetype)
     } else {
-      const unbind = archetype.onRealize(() => {
+      const unsubscribe = archetype.onRealize(() => {
         bindArchetype(records, layout, archetype)
-        unbind()
+        unsubscribe()
       })
     }
   }
