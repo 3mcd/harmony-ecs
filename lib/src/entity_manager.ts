@@ -1,19 +1,20 @@
 import { ArchetypeData, Data } from "./archetype"
+import { invariant } from "./debug"
 import { deleteEntity, Entity, makeEntity, set, unset } from "./entity"
 import { SchemaId } from "./schema"
 import { Type } from "./type"
 import { World } from "./world"
 
-type SetPayload = Data<SchemaId>
+type SetPayload = Data<SchemaId> | undefined
 type MakePayload<$Type extends Type = Type> = [layout: $Type, data?: ArchetypeData<$Type>]
 
 export type EntityManager = {
   setEntities: Entity[]
   setData: Map<SchemaId, SetPayload>[]
-  setIndex: Entity[]
+  setIndex: (Entity | undefined)[]
   unsetEntities: Entity[]
   unsetData: Set<SchemaId>[]
-  unsetIndex: Entity[]
+  unsetIndex: (Entity | undefined)[]
   makeData: MakePayload[]
   deleteEntities: Set<Entity>
 }
@@ -43,7 +44,7 @@ export function deferSet<$SchemaId extends SchemaId>(
   manager: EntityManager,
   entity: Entity,
   schemaId: $SchemaId,
-  data: Data<$SchemaId> | null = null,
+  data?: Data<$SchemaId>,
 ) {
   let entitySetIndex = manager.setIndex[entity]
   let entitySetData = manager.setData[entity]
@@ -86,7 +87,9 @@ export function applyDeferredOps(world: World, manager: EntityManager) {
   let i = manager.setEntities.length
   while (--i >= 0) {
     const entity = manager.setEntities.pop()
+    invariant(entity !== undefined)
     const entitySetData = manager.setData[entity]
+    invariant(entitySetData !== undefined)
     entitySetData.forEach((data, schemaId) => set(world, entity, schemaId, data))
     entitySetData.clear()
     manager.setIndex[entity] = undefined
@@ -94,14 +97,18 @@ export function applyDeferredOps(world: World, manager: EntityManager) {
   i = manager.unsetEntities.length
   while (--i >= 0) {
     const entity = manager.unsetEntities.pop()
+    invariant(entity !== undefined)
     const entityUnsetData = manager.unsetData[entity]
+    invariant(entityUnsetData !== undefined)
     entityUnsetData.forEach(schemaId => unset(world, entity, schemaId))
     entityUnsetData.clear()
     manager.unsetIndex[entity] = undefined
   }
   i = manager.makeData.length
   while (--i >= 0) {
-    const [layout, data] = manager.makeData.pop()
+    const payload = manager.makeData.pop()
+    invariant(payload !== undefined)
+    const [layout, data] = payload
     makeEntity(world, layout, data)
   }
   manager.deleteEntities.forEach(entity => deleteEntity(world, entity))

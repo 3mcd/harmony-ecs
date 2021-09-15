@@ -1,3 +1,5 @@
+import { invariant } from "./debug"
+
 export type SignalSubscriber<T> = (t: T) => void
 export type Signal<T> = ((subscriber: SignalSubscriber<T>) => () => void) & {
   dispatch: (t: T) => void
@@ -8,16 +10,14 @@ export function makeSignal<T>(): Signal<T> {
   function subscribe(subscriber: SignalSubscriber<T>) {
     const index = subscribers.push(subscriber) - 1
     return function unsubscribe() {
-      const head = subscribers.pop()
-      if (head === subscriber) {
-        return
-      }
-      subscribers[index] = head
+      subscribers.splice(index, 1)
     }
   }
   function dispatch(t: T) {
-    for (let i = 0; i < subscribers.length; i++) {
-      subscribers[i](t)
+    for (let i = subscribers.length - 1; i >= 0; i--) {
+      const subscriber = subscribers[i]
+      invariant(subscriber !== undefined)
+      subscriber(t)
     }
   }
   return Object.assign(subscribe, {

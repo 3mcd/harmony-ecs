@@ -1,12 +1,17 @@
 import { Archetype, ArchetypeTable } from "./archetype"
 import { findOrMakeArchetype } from "./archetype_graph"
+import { invariant } from "./debug"
 import { Entity } from "./entity"
 import { invariantTypeNormalized, isSupersetOf, normalizeType, Type } from "./type"
 import { World } from "./world"
 
+type QueryRecordData<$Type extends Type> = {
+  [K in keyof ArchetypeTable<$Type>]: ArchetypeTable<$Type>[K]["data"]
+}
+
 export type QueryRecord<$Type extends Type> = [
   entities: ReadonlyArray<Entity>,
-  data: Readonly<ArchetypeTable<$Type>>,
+  data: Readonly<QueryRecordData<$Type>>,
 ]
 export type Query<$Type extends Type = Type> = QueryRecord<$Type>[]
 export type QueryFilter = (type: Type, archetype: Archetype) => boolean
@@ -16,13 +21,14 @@ function bindArchetype<$Type extends Type>(
   layout: $Type,
   archetype: Archetype,
 ) {
-  const columns = layout.map(id => archetype.table[archetype.layout[id]])
-  records.push([
-    archetype.entities,
-    // TODO(3mcd): unsure how to get TypeScript to agree with this without
-    // casting to unknown
-    columns as unknown as Readonly<ArchetypeTable<$Type>>,
-  ])
+  const columns = layout.map(id => {
+    const columnIndex = archetype.layout[id]
+    invariant(columnIndex !== undefined)
+    const column = archetype.table[columnIndex]
+    invariant(column !== undefined)
+    return column.data
+  })
+  records.push([archetype.entities, columns as unknown as QueryRecordData<$Type>])
 }
 
 function maybeBindArchetype<$Type extends Type>(

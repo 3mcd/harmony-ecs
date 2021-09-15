@@ -1,3 +1,4 @@
+import { invariant } from "./debug"
 import { SchemaId } from "./schema"
 
 export type Type = ReadonlyArray<SchemaId>
@@ -8,6 +9,7 @@ export function addToType(type: Type, add: SchemaId): Type {
   let added = false
   for (let i = 0; i < type.length; i++) {
     const e = type[i]
+    invariant(e !== undefined)
     if (e >= add && !added) {
       if (e !== add) {
         next.push(add)
@@ -28,6 +30,7 @@ export function removeFromType(type: Type, remove: SchemaId): Type {
   for (let i = 0; i < type.length; i++) {
     const e = type[i]
     if (e !== remove) {
+      invariant(e !== undefined)
       next.push(e)
     }
   }
@@ -40,7 +43,11 @@ export function normalizeType(type: Type) {
 
 export function invariantTypeNormalized(type: Type) {
   for (let i = 0; i < type.length - 1; i++) {
-    if (type[i] > type[i + 1]) {
+    const a = type[i]
+    const b = type[i + 1]
+    invariant(a !== undefined)
+    invariant(b !== undefined)
+    if (a > b) {
       throw new TypeError("abnormal type")
     }
   }
@@ -67,6 +74,8 @@ export function isSupersetOf(outer: Type, inner: Type) {
   while (o < outer.length && i < inner.length) {
     const outerId = outer[o]
     const innerId = inner[i]
+    invariant(outerId !== undefined)
+    invariant(innerId !== undefined)
     if (outerId < innerId) {
       o++
     } else if (outerId === innerId) {
@@ -96,6 +105,8 @@ export function maybeSupersetOf(outer: Type, inner: Type) {
   while (o < outer.length && i < inner.length) {
     const outerId = outer[o]
     const innerId = inner[i]
+    invariant(outerId !== undefined)
+    invariant(innerId !== undefined)
     if (outerId < innerId) {
       o++
     } else if (outerId === innerId) {
@@ -117,12 +128,15 @@ export function getIdsBetween(outer: Type, inner: Type) {
     let j = 0
     let length = outer.length
     for (; j < length && outer[j] === inner[j]; j++) {}
-    path.push(outer[j])
+    const t = outer[j]
+    invariant(t !== undefined)
+    path.push(t)
     return path
   }
   while (o < outer.length - 1) {
     const outerId = outer[o]
     const innerId = inner[i]
+    invariant(outerId !== undefined)
     if (innerId === undefined || outerId < innerId) {
       path.push(outerId)
       o++

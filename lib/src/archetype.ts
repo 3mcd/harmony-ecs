@@ -1,115 +1,28 @@
 import { invariant } from "./debug"
 import { Entity } from "./entity"
 import {
-  AnySchema,
   BinarySchema,
+  ComplexBinarySchema,
+  ComplexNativeSchema,
   Format,
   isBinarySchema,
-  isFormat,
   NativeSchema,
+  Schema,
   SchemaId,
+  SchemaKind,
   Shape,
+  SimpleBinarySchema,
+  SimpleNativeSchema,
 } from "./schema"
 import { makeSignal, Signal } from "./signal"
 import { invariantTypeNormalized, Type } from "./type"
-import { InstanceOf } from "./types"
-import { World } from "./world"
+import { Construct, TypedArray } from "./types"
+import { findSchemaById, World } from "./world"
 
-/**
- * an archetype table column which stores entity data in typed arrays
- * @example <caption>primitive element</caption>
- * Uint32Array
- * @example
- * {
- *   id: Uint32Array,
- *   stats: {
- *     strength: Uint16Array,
- *     charisma: Uint16Array,
- *   }
- * }
- */
-type BinaryColumn<$Shape extends Shape<BinarySchema>> = $Shape extends Format
-  ? InstanceOf<$Shape["binary"]>
-  : {
-      [K in keyof $Shape]: $Shape[K] extends Format
-        ? InstanceOf<$Shape[K]["binary"]>
-        : never
-    }
-
-type NativeObjectColumn<$Shape extends Shape<NativeSchema>> = $Shape extends Format
-  ? number[]
-  : {
-      [K in keyof $Shape]: $Shape[K] extends Format
-        ? number
-        : $Shape[K] extends Shape<NativeSchema>
-        ? NativeObjectColumn<$Shape[K]>
-        : never
-    }
-
-/**
- * an archetype table column which stores entity data in arrays of built-in
- * types (i.e. objects and IEEE 754 float64)
- *
- * @example
- * [0, 1, 2]
- * @example
- * [
- *   { id: 0, stats: { strength: 10 } },
- *   { id: 1, stats: { strength: 99 } },
- * ]
- */
-type NativeColumn<$Shape extends Shape<NativeSchema>> = $Shape extends Format
-  ? number[]
-  : NativeObjectColumn<$Shape>[]
-
-/**
- * pivot on a schema's storage type (binary or native) to produce an
- * appropriate archetype column
- */
-export type ArchetypeColumnOf<$Schema extends AnySchema> = $Schema extends NativeSchema
-  ? NativeColumn<Shape<$Schema>>
-  : $Schema extends BinarySchema
-  ? BinaryColumn<Shape<$Schema>>
-  : never
-
-/**
- * entity-component storage
- */
-export type ArchetypeTable<$Type extends Type> = {
-  [K in keyof $Type]: $Type[K] extends SchemaId<infer $Schema>
-    ? ArchetypeColumnOf<$Schema>
-    : never
-}
-
-/**
- * a collection of entities which share components of the same type
- */
-export type Archetype<$Type extends Type = Type> = {
-  edgesSet: Archetype[]
-  edgesUnset: Archetype[]
-  entities: Entity[]
-  entityIndex: number[]
-  layout: number[]
-  length: number
-  real: boolean
-  onArchetypeInsert: Signal<Archetype>
-  onSet: Signal<Entity>
-  onRealize: Signal<void>
-  table: ArchetypeTable<$Type>
-  type: $Type
-}
-
-/**
- * derive the shape of a value needed to configure (e.g. insert) a binary
- * component from a `BinarySchema`
- */
 export type BinaryData<$Shape extends Shape<BinarySchema>> = $Shape extends Format
   ? number
   : { [K in keyof $Shape]: number }
 
-/**
- * derive the shape of a native component from a `NativeSchema`
- */
 export type NativeData<$Shape extends Shape<NativeSchema>> = $Shape extends Format
   ? number
   : {
@@ -120,84 +33,129 @@ export type NativeData<$Shape extends Shape<NativeSchema>> = $Shape extends Form
         : never
     }
 
-export type ShapeData<$Shape extends Shape<AnySchema>> =
-  $Shape extends Shape<BinarySchema>
-    ? BinaryData<$Shape>
-    : $Shape extends Shape<NativeSchema>
-    ? NativeData<$Shape>
-    : never
+export type ShapeData<$Shape extends Shape<Schema>> = $Shape extends Shape<BinarySchema>
+  ? BinaryData<$Shape>
+  : $Shape extends Shape<NativeSchema>
+  ? NativeData<$Shape>
+  : never
 
 export type Data<$SchemaId extends SchemaId> = $SchemaId extends SchemaId<infer $Schema>
   ? ShapeData<Shape<$Schema>>
   : never
 
-/**
- * derive a tuple of component shapes by mapping the schema of an archetype
- * type
- */
-export type ArchetypeData<$Type extends Type> = {
-  [K in keyof $Type]: $Type[K] extends SchemaId<infer $Schema>
-    ? ShapeData<Shape<$Schema>>
+type SimpleBinaryColumn<$Schema extends SimpleBinarySchema = SimpleBinarySchema> = {
+  kind: SchemaKind.BinarySimple
+  schema: $Schema
+  data: Construct<Shape<$Schema>["binary"]>
+}
+
+type ComplexBinaryColumn<$Schema extends ComplexBinarySchema = ComplexBinarySchema> = {
+  kind: SchemaKind.BinaryComplex
+  schema: $Schema
+  data: { [K in keyof Shape<$Schema>]: Construct<Shape<$Schema>[K]["binary"]> }
+}
+
+type BinaryColumn = SimpleBinaryColumn | ComplexBinaryColumn
+
+type SimpleNativeColumn<$Schema extends SimpleNativeSchema = SimpleNativeSchema> = {
+  kind: SchemaKind.NativeSimple
+  schema: $Schema
+  data: number[]
+}
+
+type ComplexNativeColumn<$Schema extends ComplexNativeSchema = ComplexNativeSchema> = {
+  kind: SchemaKind.NativeComplex
+  schema: $Schema
+  data: NativeData<Shape<$Schema>>[]
+}
+
+type ArchetypeColumn<$SchemaId extends SchemaId = SchemaId> = $SchemaId extends SchemaId<
+  infer $Schema
+>
+  ? $Schema extends SimpleBinarySchema
+    ? SimpleBinaryColumn
+    : $Schema extends ComplexBinarySchema
+    ? ComplexBinaryColumn
+    : $Schema extends SimpleNativeSchema
+    ? SimpleNativeColumn
+    : $Schema extends ComplexNativeSchema
+    ? ComplexNativeColumn
     : never
+  : never
+
+export type ArchetypeTable<$Type extends Type> = {
+  [K in keyof $Type]: $Type[K] extends SchemaId ? ArchetypeColumn<$Type[K]> : never
+}
+
+export type Archetype<$Type extends Type = Type> = {
+  edgesSet: Archetype[]
+  edgesUnset: Archetype[]
+  entities: Entity[]
+  entityIndex: number[]
+  layout: number[]
+  length: number
+  real: boolean
+  onArchetypeInsert: Signal<Archetype>
+  onRealize: Signal<void>
+  table: ArchetypeTable<$Type>
+  type: $Type
+}
+
+export type ArchetypeData<$Type extends Type> = {
+  [K in keyof $Type]: $Type[K] extends SchemaId ? Data<$Type[K]> : never
 }
 
 const ArrayBufferConstructor = globalThis.SharedArrayBuffer ?? globalThis.ArrayBuffer
 
-function makeArchetypeColumn<$Schema extends AnySchema>(
-  schema: $Schema,
-  size: number,
-): ArchetypeColumnOf<$Schema> {
-  if (isBinarySchema(schema)) {
-    if (isFormat(schema.shape)) {
-      // binary & simple
+function makeArchetypeColumn(schema: Schema, size: number): ArchetypeColumn {
+  let data: ArchetypeColumn["data"]
+  switch (schema.kind) {
+    case SchemaKind.BinarySimple: {
       const buffer = new ArrayBufferConstructor(
         size * schema.shape.binary.BYTES_PER_ELEMENT,
       )
-      return new schema.shape.binary(buffer) as ArchetypeColumnOf<$Schema>
-    } else {
-      // binary & complex
-      // map each member node to a typed array
-      return Object.entries(schema.shape).reduce((a, [memberName, memberNode]) => {
+      data = new schema.shape.binary(buffer)
+      break
+    }
+    case SchemaKind.BinaryComplex: {
+      data = Object.entries(schema.shape).reduce((a, [memberName, memberNode]) => {
         const buffer = new ArrayBufferConstructor(
           size * memberNode.binary.BYTES_PER_ELEMENT,
         )
         a[memberName] = new memberNode.binary(buffer)
         return a
-      }, {} as ArchetypeColumnOf<$Schema>)
+      }, {} as { [key: string]: TypedArray })
+      break
     }
-  } else {
-    // native
-    return [] as ArchetypeColumnOf<$Schema>
+    case SchemaKind.NativeSimple:
+    case SchemaKind.NativeComplex:
+      data = []
+      break
   }
+  return { kind: schema.kind, schema, data } as ArchetypeColumn
 }
 
 function makeArchetypeTable<$Type extends Type>(
   world: World,
   type: $Type,
 ): ArchetypeTable<$Type> {
-  // TODO(3mcd): unsure how to get TypeScript to agree with this without
-  // casting to unknown
-  return type.map(id =>
-    makeArchetypeColumn(world.schemaIndex[id], world.size),
+  return type.map(schemaId =>
+    makeArchetypeColumn(findSchemaById(world, schemaId), world.size),
   ) as unknown as ArchetypeTable<$Type>
 }
 
-export function makeRootArchetype(): Archetype<[]> {
-  const entities: Entity[] = []
-  const entityIndex: number[] = []
-  const table: ArchetypeTable<[]> = []
+export function makeRootArchetype(): Archetype {
   return {
     edgesSet: [],
     edgesUnset: [],
-    entities,
-    entityIndex,
+    entities: [],
+    entityIndex: [],
     layout: [],
     length: 0,
-    real: true,
+    real: false,
     onArchetypeInsert: makeSignal(),
-    onSet: makeSignal(),
     onRealize: makeSignal(),
-    table,
+    table: [],
     type: [],
   }
 }
@@ -212,7 +170,9 @@ export function makeArchetype<$Type extends Type>(
   const table = makeArchetypeTable(world, type)
   const layout: number[] = []
   for (let i = 0; i < type.length; i++) {
-    layout[type[i]] = i
+    const schemaId = type[i]
+    invariant(schemaId !== undefined)
+    layout[schemaId] = i
   }
   return {
     edgesSet: [],
@@ -223,7 +183,6 @@ export function makeArchetype<$Type extends Type>(
     length: 0,
     real: false,
     onArchetypeInsert: makeSignal(),
-    onSet: makeSignal(),
     onRealize: makeSignal(),
     table,
     type,
@@ -231,34 +190,20 @@ export function makeArchetype<$Type extends Type>(
 }
 
 export function insertIntoArchetype<$Type extends Type>(
-  world: World,
-  archetype: Archetype<$Type>,
+  archetype: Archetype,
   entity: Entity,
   data: ArchetypeData<$Type>,
 ) {
   const length = archetype.entities.length
   for (let i = 0; i < archetype.type.length; i++) {
-    const id = archetype.type[i]
-    const schema = world.schemaIndex[id]
-    if (isBinarySchema(schema)) {
-      const { shape } = schema
-      if (isFormat(shape)) {
-        // binary & simple
-        archetype.table[i][length] = data[i]
-      } else {
-        // binary & complex
-        for (const prop in shape) {
-          archetype.table[i][prop][length] = data[i][prop]
-        }
-      }
-    } else {
-      // native
-      archetype.table[i][length] = data[i]
-    }
-    archetype.entities[length] = entity
-    archetype.entityIndex[entity] = length
-    archetype.onSet.dispatch(entity)
+    const schemaId = archetype.type[i]
+    const value = data[i]
+    invariant(schemaId !== undefined)
+    invariant(value !== undefined)
+    insert(archetype, schemaId, value)
   }
+  archetype.entities[length] = entity
+  archetype.entityIndex[entity] = length
   archetype.length++
   if (archetype.real === false) {
     archetype.real = true
@@ -266,75 +211,86 @@ export function insertIntoArchetype<$Type extends Type>(
   }
 }
 
-export function removeFromArchetype<$Type extends Type>(
-  world: World,
-  archetype: Archetype<$Type>,
-  entity: number,
-) {
-  const index = archetype.entityIndex[entity]
-  const head = archetype.entities.pop()
-  const pop = index === archetype.length - 1
+export function removeFromArchetype(archetype: Archetype, entity: number) {
+  const currIndex = archetype.entityIndex[entity]
+  const currHead = archetype.entities.pop()
 
-  if (pop) {
+  invariant(currIndex !== undefined)
+  invariant(currHead !== undefined)
+
+  if (currIndex === archetype.length - 1) {
     // entity was head
     for (let i = 0; i < archetype.type.length; i++) {
-      const id = archetype.type[i]
-      const schema = world.schemaIndex[id]
       const column = archetype.table[i]
-      if (isBinarySchema(schema)) {
-        if (isFormat(schema.shape)) {
-          column[index] = 0
-        } else {
-          for (const key in schema.shape) {
-            column[key][index] = 0
+      invariant(column !== undefined)
+      switch (column.kind) {
+        case SchemaKind.BinarySimple:
+          column.data[currIndex] = 0
+          break
+        case SchemaKind.BinaryComplex:
+          for (const key in column.schema.shape) {
+            const array = column.data[key]
+            invariant(array !== undefined)
+            array[currIndex] = 0
           }
-        }
-      } else {
-        column.pop()
+          break
+        case SchemaKind.NativeSimple:
+        case SchemaKind.NativeComplex:
+          column.data.pop()
+          break
       }
     }
   } else {
-    const moved = archetype.length - 1
+    const src = archetype.length - 1
     for (let i = 0; i < archetype.type.length; i++) {
-      const id = archetype.type[i]
-      const schema = world.schemaIndex[id]
       const column = archetype.table[i]
-      if (isBinarySchema(schema)) {
-        if (isFormat(schema.shape)) {
-          const value = column[moved]
-          column[moved] = 0
-          column[index] = value
-        } else {
-          for (const key in schema.shape) {
-            const value = column[key][moved]
-            column[key][moved] = 0
-            column[key][index] = value
+      invariant(column !== undefined)
+      switch (column.kind) {
+        case SchemaKind.BinarySimple:
+          const data = column.data[src]
+          invariant(data !== undefined)
+          column.data[src] = 0
+          column.data[currIndex] = data
+          break
+        case SchemaKind.BinaryComplex:
+          for (const key in column.schema.shape) {
+            const array = column.data[key]
+            invariant(array !== undefined)
+            const data = array[src]
+            invariant(data !== undefined)
+            array[src] = 0
+            array[currIndex] = data
           }
+          break
+        case SchemaKind.NativeSimple:
+        case SchemaKind.NativeComplex: {
+          const data = column.data.pop()
+          invariant(data !== undefined)
+          column.data[currIndex] = data
+          break
         }
-      } else {
-        column[index] = column.pop()
       }
     }
-    archetype.entities[index] = head
-    archetype.entityIndex[head] = index
+    archetype.entities[currIndex] = currHead
+    archetype.entityIndex[currHead] = currIndex
   }
 
   archetype.entityIndex[entity] = -1
   archetype.length--
 }
 
-export function moveToArchetype(
-  world: World,
+export function moveToArchetype<$SchemaId extends SchemaId>(
   prev: Archetype,
   next: Archetype,
   entity: number,
-  schema?: AnySchema,
-  data?: unknown,
+  schemaId?: $SchemaId,
+  data?: Data<$SchemaId>,
 ) {
+  invariant(Math.abs(prev.type.length - next.type.length) === 1)
   if (prev.entityIndex[entity] === prev.length - 1) {
-    moveToArchetypePop(world, prev, next, entity, schema, data)
+    moveToArchetypePop(prev, next, schemaId, data)
   } else {
-    moveToArchetypeSwap(world, prev, next, entity, schema, data)
+    moveToArchetypeSwap(prev, next, entity, schemaId, data)
   }
   if (next.real === false) {
     next.real = true
@@ -342,140 +298,207 @@ export function moveToArchetype(
   }
 }
 
-export function moveToArchetypeSwap(
-  world: World,
+export function moveToArchetypeSwap<$SchemaId extends SchemaId>(
   prev: Archetype,
   next: Archetype,
   entity: number,
-  schema?: AnySchema,
-  data?: unknown,
+  schemaId?: $SchemaId,
+  data?: Data<$SchemaId>,
 ) {
+  const prevHead = prev.entities.pop()
   const nextType = next.type
   const prevType = prev.type
   const prevEnd = next.length - 1
   const prevIndex = prev.entityIndex[entity]
   const set = prevType.length < nextType.length
 
+  invariant(prevHead !== undefined)
+  invariant(prevIndex !== undefined)
+
   let i = 0
   let j = 0
 
   for (; i < prevType.length; i++) {
-    const prevId = prevType[i]
-    const nextId = nextType[j]
     const prevColumn = prev.table[i]
     const nextColumn = next.table[j]
-    const schema = world.schemaIndex[prevId]
-    const hit = prevId === nextId
-    if (isBinarySchema(schema)) {
-      if (isFormat(schema.shape)) {
-        if (hit) nextColumn[next.length] = prevColumn[prevIndex]
-        prevColumn[prevIndex] = prevColumn[prevEnd]
-        prevColumn[prevEnd] = 0
-      } else {
-        for (const key in schema.shape) {
-          const prevArray = prevColumn[key]
-          if (hit) nextColumn[key][next.length] = prevArray[prevIndex]
-          prevArray[prevIndex] = prevArray[prevEnd]
+    invariant(prevColumn !== undefined)
+    const hit = prevType[i] === nextType[j]
+    switch (prevColumn.kind) {
+      case SchemaKind.BinarySimple: {
+        if (hit) {
+          invariant(nextColumn !== undefined && nextColumn.kind === prevColumn.kind)
+          const copy = prevColumn.data[prevIndex]
+          invariant(copy !== undefined)
+          nextColumn.data[next.length] = copy
+        }
+        const move = prevColumn.data[prevEnd]
+        invariant(move !== undefined)
+        prevColumn.data[prevIndex] = move
+        prevColumn.data[prevEnd] = 0
+        break
+      }
+      case SchemaKind.BinaryComplex:
+        for (const key in prevColumn.schema.shape) {
+          const prevArray = prevColumn.data[key]
+          invariant(prevArray !== undefined)
+          if (hit) {
+            invariant(nextColumn !== undefined && nextColumn.kind === prevColumn.kind)
+            const copy = prevArray[prevIndex]
+            invariant(copy !== undefined)
+            const array = nextColumn.data[key]
+            invariant(array !== undefined)
+            array[next.length] = copy
+          }
+          const move = prevArray[prevEnd]
+          invariant(move !== undefined)
+          prevArray[prevIndex] = move
           prevArray[prevEnd] = 0
         }
+        break
+      case SchemaKind.NativeSimple:
+      case SchemaKind.NativeComplex: {
+        if (hit) {
+          invariant(nextColumn !== undefined && nextColumn.kind === prevColumn.kind)
+          const copy = prevColumn.data[prevIndex]
+          invariant(copy !== undefined)
+          nextColumn.data[next.length] = copy
+        }
+        const move = prevColumn.data.pop()
+        invariant(move !== undefined)
+        prevColumn.data[prevIndex] = move
+        break
       }
-    } else {
-      const data = prevColumn.pop()
-      if (hit) nextColumn[next.length] = data
-      prevColumn[prevIndex] = data
     }
     if (hit) j++
   }
 
   if (set) {
-    invariant(schema !== undefined)
-    const nextColumn = next.table[next.layout[schema.id]]
-    if (isBinarySchema(schema)) {
-      if (isFormat(schema.shape)) {
-        nextColumn[next.length] = data
-      } else {
-        for (const key in schema.shape) {
-          nextColumn[key][next.length] = data[key]
-        }
-      }
-    } else {
-      nextColumn[next.length] = data
-    }
+    invariant(schemaId !== undefined)
+    invariant(data !== undefined)
+    insert(next, schemaId, data)
   }
-  next.onSet.dispatch(entity)
+
   next.entities[next.length] = entity
   next.entityIndex[entity] = next.length
-  next.length++
-  prev.entities[prevIndex] = prev.entities.pop()
+  prev.entities[prevIndex] = prevHead
   prev.entityIndex[entity] = prevIndex
   prev.length--
+  next.length++
 }
 
-export function moveToArchetypePop(
-  world: World,
+export function moveToArchetypePop<$SchemaId extends SchemaId>(
   prev: Archetype,
   next: Archetype,
-  entity: number,
-  schema?: AnySchema,
-  data?: unknown,
+  schemaId?: $SchemaId,
+  data?: Data<$SchemaId>,
 ) {
+  const entity = prev.entities.pop()
+  invariant(entity !== undefined)
+  const prevIndex = prev.entityIndex[entity]
+  invariant(prevIndex !== undefined)
   const nextType = next.type
   const prevType = prev.type
-  const prevIndex = prev.entityIndex[entity]
   const set = prevType.length < nextType.length
-
-  prev.entities.pop()
 
   let i = 0
   let j = 0
 
   for (; i < prevType.length; i++) {
-    const prevId = prevType[i]
-    const nextId = nextType[j]
     const prevColumn = prev.table[i]
     const nextColumn = next.table[j]
-    const schema = world.schemaIndex[prevId]
-    const hit = prevId === nextId
-    if (isBinarySchema(schema)) {
-      if (isFormat(schema.shape)) {
-        if (hit) nextColumn[next.length] = prevColumn[prevIndex]
-        // TODO(3mcd): this can be optimized, we know `move` ahead of time
-        prevColumn[prevIndex] = 0
-      } else {
-        for (const key in schema.shape) {
-          const prevArray = prevColumn[key]
-          if (hit) nextColumn[key][next.length] = prevArray[prevIndex]
+    invariant(prevColumn !== undefined)
+    invariant(nextColumn !== undefined)
+    const hit = prevType[i] === nextType[j]
+    switch (prevColumn.kind) {
+      case SchemaKind.BinarySimple:
+        if (hit) {
+          invariant(nextColumn !== undefined && nextColumn.kind === prevColumn.kind)
+          const value = prevColumn.data[prevIndex]
+          invariant(value !== undefined)
+          nextColumn.data[next.length] = value
+        }
+        prevColumn.data[prevIndex] = 0
+        break
+      case SchemaKind.BinaryComplex:
+        for (const key in prevColumn.schema.shape) {
+          const prevArray = prevColumn.data[key]
+          invariant(prevArray !== undefined)
+          if (hit) {
+            invariant(nextColumn !== undefined && nextColumn.kind === prevColumn.kind)
+            const array = nextColumn.data[key]
+            const value = prevArray[prevIndex]
+            invariant(array !== undefined)
+            invariant(value !== undefined)
+            array[next.length] = value
+          }
           prevArray[prevIndex] = 0
         }
+        break
+      case SchemaKind.NativeSimple:
+      case SchemaKind.NativeComplex: {
+        const data = prevColumn.data.pop()
+        if (hit) {
+          invariant(nextColumn !== undefined && nextColumn.kind === prevColumn.kind)
+          invariant(data !== undefined)
+          nextColumn.data[next.length] = data
+        }
+        break
       }
-    } else {
-      const data = prevColumn.pop()
-      if (hit) nextColumn[next.length] = data
+      default:
+        break
     }
     if (hit) j++
   }
 
   if (set) {
-    invariant(schema !== undefined)
-    const nextColumn = next.table[next.layout[schema.id]]
-    if (isBinarySchema(schema)) {
-      if (isFormat(schema.shape)) {
-        nextColumn[next.length] = data
-      } else {
-        for (const key in schema.shape) {
-          nextColumn[key][next.length] = data[key]
-        }
-      }
-    } else {
-      nextColumn[next.length] = data
-    }
+    invariant(schemaId !== undefined)
+    invariant(data !== undefined)
+    insert(next, schemaId, data)
   }
-  next.onSet.dispatch(entity)
+
   next.entities[next.length] = entity
   next.entityIndex[entity] = next.length
-  next.length++
   prev.entityIndex[entity] = -1
   prev.length--
+  next.length++
 }
 
-export function grow(archetype: Archetype) {}
+function insert<$SchemaId extends SchemaId>(
+  archetype: Archetype,
+  schemaId: $SchemaId,
+  data: Data<$SchemaId>,
+) {
+  const nextColumnIndex = archetype.layout[schemaId as number]
+  invariant(nextColumnIndex !== undefined)
+  const nextColumn = archetype.table[nextColumnIndex]
+  invariant(nextColumn !== undefined)
+  switch (nextColumn.kind) {
+    case SchemaKind.BinarySimple:
+      invariant(typeof data === "number")
+      nextColumn.data[archetype.length] = data
+      break
+    case SchemaKind.BinaryComplex:
+      for (const key in nextColumn.schema.shape) {
+        invariant(typeof data === "object")
+        const array = nextColumn.data[key]
+        const value = data[key]
+        invariant(array !== undefined)
+        invariant(typeof value === "number")
+        array[archetype.length] = value
+      }
+      break
+    case SchemaKind.NativeSimple:
+    case SchemaKind.NativeComplex:
+      invariant(typeof data === "number" || typeof data === "object")
+      nextColumn.data[archetype.length] = data
+      break
+  }
+}
+
+export function traverseSet(archetype: Archetype, schemaId: SchemaId) {
+  return archetype.edgesSet[schemaId]
+}
+
+export function traverseUnset(archetype: Archetype, schemaId: SchemaId) {
+  return archetype.edgesUnset[schemaId]
+}

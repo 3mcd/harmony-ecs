@@ -1,4 +1,5 @@
 import { Archetype, makeArchetype } from "./archetype"
+import { invariant } from "./debug"
 import { SchemaId } from "./schema"
 import {
   addToType,
@@ -19,9 +20,11 @@ function makeLink(world: World, outer: Archetype, inner: Archetype) {
   const ids = getIdsBetween(outer.type, inner.type)
   let next = outer
   for (let i = 0; i < ids.length; i++) {
-    const type = removeFromType(next.type, ids[i])
+    const id = ids[i]
+    invariant(id !== undefined)
+    const type = removeFromType(next.type, id)
     const link = findOrMakeArchetype(world, type)
-    makeEdge(link, next, ids[i])
+    makeEdge(link, next, id)
     next = link
   }
 }
@@ -66,10 +69,12 @@ export function findArchetype(world: World, type: Type) {
   let archetype = world.archetypeRoot
   for (let i = 0; i < type.length; i++) {
     const id = type[i]
-    archetype = archetype.edgesSet[id]
-    if (archetype === undefined) {
+    invariant(id !== undefined)
+    const next = archetype.edgesSet[id]
+    if (next === undefined) {
       return null
     }
+    archetype = next
   }
   return archetype
 }
@@ -78,6 +83,7 @@ export function findOrMakeArchetype(world: World, type: Type) {
   let archetype = world.archetypeRoot
   for (let i = 0; i < type.length; i++) {
     const id = type[i]
+    invariant(id !== undefined)
     archetype = archetype.edgesSet[id] ?? insertArchetype(world, type.slice(0, i + 1))
   }
   return archetype

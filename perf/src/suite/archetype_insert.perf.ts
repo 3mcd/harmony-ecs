@@ -102,7 +102,7 @@ if (typeof window === "object") {
       Array.from(nodes).map(archetype => ({
         id: archetype.type.toString(),
         label: `(${archetype.type.map(x => String.fromCharCode(65 + x))})`,
-        color: getColor(archetype.entities.length / 100),
+        color: archetype.real ? getColor(archetype.entities.length / 100) : "#cccccc",
       })),
     ),
     edges: new DataSet(edges),

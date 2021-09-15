@@ -10,7 +10,7 @@ export {
 export { makeQuery, makeStaticQuery, not } from "./query"
 export type { Query } from "./query"
 export { formats, makeBinarySchema, makeSchema } from "./schema"
-export type { AnySchema, BinarySchema, NativeSchema } from "./schema"
+export type { Schema, BinarySchema, NativeSchema } from "./schema"
 export { makeSignal } from "./signal"
 export { makeWorld } from "./world"
 export type { World } from "./world"

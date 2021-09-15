@@ -14,10 +14,10 @@ export type TypedArrayConstructor = {
   BYTES_PER_ELEMENT: number
 }
 
-export type InstanceOf<$Ctor> = $Ctor extends { new (): infer _ } ? _ : never
+export type Construct<$Ctor> = $Ctor extends { new (...args: any[]): infer _ } ? _ : never
 
 declare class OpaqueTag<$Tag> {
-  protected tag: $Tag;
+  protected tag: $Tag
 }
 
-export type Opaque<$Type, $Tag> = $Type & OpaqueTag<$Tag>;
+export type Opaque<$Type, $Tag> = $Type & OpaqueTag<$Tag>
