@@ -27,7 +27,9 @@ Some nascent documentation resides on the repository [wiki](https://github.com/3
 
 ## Examples
 
-Below is an example of hybrid storage where a TypedArray-based `Velocity` component is used to update an object-based `Position` component:
+This repo contains examples in the [`examples`](./examples) directory. You can run each project using `npm run example:*`, where `*` is the name of an example subdirectory.
+
+Below is a sample of Harmony's API, where a TypedArray-based `Velocity` component is used to update an object-based `Position` component:
 
 ```ts
 import * as Harmony from "./lib/dist"
