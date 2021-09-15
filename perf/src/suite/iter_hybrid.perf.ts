@@ -26,9 +26,9 @@ export const insert = makePerfOnce(() => {
 export const iter = makePerf(() => {
   for (const [entities, [p, v]] of bodies) {
     for (let i = 0; i < entities.length; i++) {
-      p.x[i] += v[i].x
-      p.y[i] += v[i].y
-      p.z[i] += v[i].z
+      p.x[i] += v[i]!.x
+      p.y[i] += v[i]!.y
+      p.z[i] += v[i]!.z
     }
   }
 })
@@ -36,9 +36,9 @@ export const iter = makePerf(() => {
 export const iterUpdateNative = makePerf(() => {
   for (const [entities, [p, v]] of bodies) {
     for (let i = 0; i < entities.length; i++) {
-      v[i].x += p.x[i]
-      v[i].y += p.y[i]
-      v[i].z += p.z[i]
+      v[i]!.x += p.x[i]!
+      v[i]!.y += p.y[i]!
+      v[i]!.z += p.z[i]!
     }
   }
 })

@@ -20,9 +20,9 @@ export const insert = makePerfOnce(() => {
 export const iter = makePerf(() => {
   for (const [entities, [p, v]] of bodies) {
     for (let i = 0; i < entities.length; i++) {
-      p[i].x += v[i].x
-      p[i].y += v[i].y
-      p[i].z += v[i].z
+      p[i]!.x += v[i]!.x
+      p[i]!.y += v[i]!.y
+      p[i]!.z += v[i]!.z
     }
   }
 })

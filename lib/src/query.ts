@@ -1,17 +1,24 @@
-import { Archetype, ArchetypeTable } from "./archetype"
+import { Archetype, ArchetypeColumn, ArchetypeTable } from "./archetype"
 import { findOrMakeArchetype } from "./archetype_graph"
 import { invariant } from "./debug"
 import { Entity } from "./entity"
+import { SchemaId } from "./schema"
 import { invariantTypeNormalized, isSupersetOf, normalizeType, Type } from "./type"
 import { World } from "./world"
 
 type QueryRecordData<$Type extends Type> = {
-  [K in keyof ArchetypeTable<$Type>]: ArchetypeTable<$Type>[K]["data"]
+  [K in keyof $Type]: $Type[K] extends SchemaId
+    ? ArchetypeColumn<$Type[K]>["data"]
+    : never
 }
 
 export type QueryRecord<$Type extends Type> = [
   entities: ReadonlyArray<Entity>,
-  data: Readonly<QueryRecordData<$Type>>,
+  data: {
+    [K in keyof $Type]: $Type[K] extends SchemaId
+      ? ArchetypeColumn<$Type[K]>["data"]
+      : never
+  },
 ]
 export type Query<$Type extends Type = Type> = QueryRecord<$Type>[]
 export type QueryFilter = (type: Type, archetype: Archetype) => boolean

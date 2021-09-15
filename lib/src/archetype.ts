@@ -5,7 +5,6 @@ import {
   ComplexBinarySchema,
   ComplexNativeSchema,
   Format,
-  isBinarySchema,
   NativeSchema,
   Schema,
   SchemaId,
@@ -55,8 +54,6 @@ type ComplexBinaryColumn<$Schema extends ComplexBinarySchema = ComplexBinarySche
   data: { [K in keyof Shape<$Schema>]: Construct<Shape<$Schema>[K]["binary"]> }
 }
 
-type BinaryColumn = SimpleBinaryColumn | ComplexBinaryColumn
-
 type SimpleNativeColumn<$Schema extends SimpleNativeSchema = SimpleNativeSchema> = {
   kind: SchemaKind.NativeSimple
   schema: $Schema
@@ -69,19 +66,18 @@ type ComplexNativeColumn<$Schema extends ComplexNativeSchema = ComplexNativeSche
   data: NativeData<Shape<$Schema>>[]
 }
 
-type ArchetypeColumn<$SchemaId extends SchemaId = SchemaId> = $SchemaId extends SchemaId<
-  infer $Schema
->
-  ? $Schema extends SimpleBinarySchema
-    ? SimpleBinaryColumn
-    : $Schema extends ComplexBinarySchema
-    ? ComplexBinaryColumn
-    : $Schema extends SimpleNativeSchema
-    ? SimpleNativeColumn
-    : $Schema extends ComplexNativeSchema
-    ? ComplexNativeColumn
-    : never
+type DeriveColumnShape<$Schema extends Schema> = $Schema extends SimpleBinarySchema
+  ? SimpleBinaryColumn<$Schema>
+  : $Schema extends ComplexBinarySchema
+  ? ComplexBinaryColumn<$Schema>
+  : $Schema extends SimpleNativeSchema
+  ? SimpleNativeColumn<$Schema>
+  : $Schema extends ComplexNativeSchema
+  ? ComplexNativeColumn<$Schema>
   : never
+
+export type ArchetypeColumn<$SchemaId extends SchemaId = SchemaId> =
+  $SchemaId extends SchemaId<infer $Schema> ? DeriveColumnShape<$Schema> : never
 
 export type ArchetypeTable<$Type extends Type> = {
   [K in keyof $Type]: $Type[K] extends SchemaId ? ArchetypeColumn<$Type[K]> : never

@@ -48,7 +48,7 @@ for (let i = 0; i < 10; i++) {
   for (let i = fixture.types.length - 1; i >= 0; i--) {
     const count = Math.random() * 100
     for (let j = 0; j < count; j++) {
-      makeEntity(world, fixture.types[i])
+      makeEntity(world, fixture.types[i]!)
       e++
     }
   }
@@ -66,7 +66,7 @@ function getUniqueArchetypes(archetype: Archetype, visited = new Set<Archetype>(
 
 console.log(
   `${
-    getUniqueArchetypes(world.archetypeRoot).size
+    getUniqueArchetypes(world!.archetypeRoot).size
   } archetype insert took ${avgTime.toFixed(2)}ms`,
 )
 
@@ -93,8 +93,8 @@ function insertGraphData(
 
 if (typeof window === "object") {
   const nodes = new Set<Archetype>()
-  const edges = []
-  insertGraphData(world.archetypeRoot, nodes, edges)
+  const edges: Edge[] = []
+  insertGraphData(world!.archetypeRoot, nodes, edges)
   // create a network
   const container = document.getElementById("archetypes")
   const data = {
@@ -117,9 +117,9 @@ if (typeof window === "object") {
       },
     },
   }
-  const network = new Network(container, data, options)
+  const network = new Network(container!, data, options)
 }
 
 export const run = makePerfOnce(() => {})
-globalThis.world = world
-globalThis.Harmony = Harmony
+;(globalThis as any).world = world!
+;(globalThis as any).Harmony = Harmony

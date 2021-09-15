@@ -21,9 +21,9 @@ for (let i = 0; i < 1_000_000; i++) {
 
 export const a_store = makePerfOnce(() => {
   for (let i = 0; i < points.length; i++) {
-    const [e] = points[i]
+    const [e] = points[i]!
     for (let j = 0; j < e.length; j++) {
-      deferSet(manager, e[j], Velocity)
+      deferSet(manager, e[j]!, Velocity)
     }
   }
 })
