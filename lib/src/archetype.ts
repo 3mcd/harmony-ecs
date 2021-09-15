@@ -407,7 +407,6 @@ export function moveToArchetypePop<$SchemaId extends SchemaId>(
     const prevColumn = prev.table[i]
     const nextColumn = next.table[j]
     invariant(prevColumn !== undefined)
-    invariant(nextColumn !== undefined)
     const hit = prevType[i] === nextType[j]
     switch (prevColumn.kind) {
       case SchemaKind.BinarySimple:
@@ -468,19 +467,19 @@ function insert<$SchemaId extends SchemaId>(
   schemaId: $SchemaId,
   data: Data<$SchemaId>,
 ) {
-  const nextColumnIndex = archetype.layout[schemaId as number]
-  invariant(nextColumnIndex !== undefined)
-  const nextColumn = archetype.table[nextColumnIndex]
-  invariant(nextColumn !== undefined)
-  switch (nextColumn.kind) {
+  const columnIndex = archetype.layout[schemaId as number]
+  invariant(columnIndex !== undefined)
+  const column = archetype.table[columnIndex]
+  invariant(column !== undefined)
+  switch (column.kind) {
     case SchemaKind.BinarySimple:
       invariant(typeof data === "number")
-      nextColumn.data[archetype.length] = data
+      column.data[archetype.length] = data
       break
     case SchemaKind.BinaryComplex:
-      for (const key in nextColumn.schema.shape) {
+      for (const key in column.schema.shape) {
         invariant(typeof data === "object")
-        const array = nextColumn.data[key]
+        const array = column.data[key]
         const value = data[key]
         invariant(array !== undefined)
         invariant(typeof value === "number")
@@ -490,7 +489,7 @@ function insert<$SchemaId extends SchemaId>(
     case SchemaKind.NativeSimple:
     case SchemaKind.NativeComplex:
       invariant(typeof data === "number" || typeof data === "object")
-      nextColumn.data[archetype.length] = data
+      column.data[archetype.length] = data
       break
   }
 }

@@ -48,7 +48,7 @@ describe("query counts", () => {
     queries.forEach((query, i) => {
       let count = 0
       for (let i = 0; i < query.length; i++) {
-        const [entities] = query[i]
+        const [entities] = query[i]!
         count += entities.length
       }
       expect(count).toBe(expectedEntityCounts[i])

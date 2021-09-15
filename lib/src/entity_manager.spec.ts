@@ -1,3 +1,4 @@
+// @ts-nocheck
 import { makeEntity } from "./entity"
 import {
   applyDeferredOps,
@@ -49,7 +50,8 @@ describe("applyDeferredOps", () => {
     const { world, manager, Schema } = makeFixture()
     deferMakeEntity(manager, [Schema], [99])
     applyDeferredOps(world, manager)
-    expect(world.archetypeRoot.edgesSet[0].table[0][0]).toBe(99)
+    expect(world.archetypeRoot.edgesSet[0].entities).toHaveLength(1)
+    expect(world.archetypeRoot.edgesSet[0].table[0].data[0]).toBe(99)
   })
   it("applies set operations to a world", () => {
     const { world, manager, Schema } = makeFixture()
@@ -57,7 +59,7 @@ describe("applyDeferredOps", () => {
     deferSet(manager, entity, Schema, 99)
     applyDeferredOps(world, manager)
     expect(world.archetypeRoot.edgesSet[0].entities).toContain(entity)
-    expect(world.archetypeRoot.edgesSet[0].table[0][0]).toBe(99)
+    expect(world.archetypeRoot.edgesSet[0].table[0].data[0]).toBe(99)
   })
   it("applies unset operations to a world", () => {
     const { world, manager, Schema } = makeFixture()
