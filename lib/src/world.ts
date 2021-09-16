@@ -1,7 +1,7 @@
 import { Archetype, makeRootArchetype } from "./archetype"
 import { invariant } from "./debug"
 import { Entity } from "./entity"
-import { Schema } from "./schema"
+import { Schema } from "./model"
 
 export type World = {
   archetypeRoot: Archetype

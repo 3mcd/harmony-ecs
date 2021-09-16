@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="src/favicon.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>harmony-ecs/examples/compat</title>
+    <style>
+      #network {
+        width: 100vw;
+        height: 100vh;
+        position: fixed;
+        top: 0;
+        left: 0;
+      }
+      .controls {
+        position: relative;
+        z-index: 1;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="network"></div>
+    <div class="controls">
+      <input id="type" type="text" placeholder="e.g. 1,5,7" />
+      <button id="insert">Insert</button>
+    </div>
+    <script>
+      const network = document.getElementById("network")
+      function onResize() {
+        network.width = window.innerWidth
+        network.height = window.innerHeight
+      }
+      window.addEventListener("resize", onResize)
+    </script>
+    <script type="module" src="/src/index.ts"></script>
+  </body>
+</html>

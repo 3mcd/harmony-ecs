@@ -1,4 +1,4 @@
-import { SchemaId } from "./schema"
+import { SchemaId } from "./model"
 import {
   addToType,
   getIdsBetween,

@@ -39,7 +39,6 @@ function makeFixture() {
 const results: number[] = []
 
 let world: World
-let e = 0
 
 for (let i = 0; i < 10; i++) {
   const fixture = makeFixture()
@@ -49,7 +48,6 @@ for (let i = 0; i < 10; i++) {
     const count = Math.random() * 100
     for (let j = 0; j < count; j++) {
       makeEntity(world, fixture.types[i]!)
-      e++
     }
   }
   const end = performance.now()

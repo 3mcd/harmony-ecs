@@ -1,7 +1,7 @@
 import { ArchetypeData, Data } from "./archetype"
 import { invariant } from "./debug"
 import { deleteEntity, Entity, makeEntity, set, unset } from "./entity"
-import { SchemaId } from "./schema"
+import { SchemaId } from "./model"
 import { Type } from "./type"
 import { World } from "./world"
 
