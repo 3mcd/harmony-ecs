@@ -19,7 +19,7 @@ import {
   NativeSchema,
   SchemaId,
   Shape,
-} from "./schema"
+} from "./model"
 import { addToType, normalizeType, removeFromType, Type } from "./type"
 import {
   findSchemaById,

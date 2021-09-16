@@ -2,17 +2,17 @@ import { invariant } from "./debug"
 import { Entity } from "./entity"
 import {
   BinarySchema,
-  ComplexBinarySchema,
-  ComplexNativeSchema,
+  BinaryObjectSchema,
+  NativeObjectSchema,
   Format,
   NativeSchema,
   Schema,
   SchemaId,
   SchemaKind,
   Shape,
-  SimpleBinarySchema,
-  SimpleNativeSchema,
-} from "./schema"
+  BinaryScalarSchema,
+  NativeScalarSchema,
+} from "./model"
 import { makeSignal, Signal } from "./signal"
 import { invariantTypeNormalized, Type } from "./type"
 import { Construct, TypedArray } from "./types"
@@ -32,47 +32,47 @@ export type NativeData<$Shape extends Shape<NativeSchema>> = $Shape extends Form
         : never
     }
 
-export type ShapeData<$Shape extends Shape<Schema>> = $Shape extends Shape<BinarySchema>
+export type DataOfShape<$Shape extends Shape<Schema>> = $Shape extends Shape<BinarySchema>
   ? BinaryData<$Shape>
   : $Shape extends Shape<NativeSchema>
   ? NativeData<$Shape>
   : never
 
 export type Data<$SchemaId extends SchemaId> = $SchemaId extends SchemaId<infer $Schema>
-  ? ShapeData<Shape<$Schema>>
+  ? DataOfShape<Shape<$Schema>>
   : never
 
-type SimpleBinaryColumn<$Schema extends SimpleBinarySchema = SimpleBinarySchema> = {
-  kind: SchemaKind.BinarySimple
+type ScalarBinaryColumn<$Schema extends BinaryScalarSchema = BinaryScalarSchema> = {
+  kind: SchemaKind.BinaryScalar
   schema: $Schema
   data: Construct<Shape<$Schema>["binary"]>
 }
 
-type ComplexBinaryColumn<$Schema extends ComplexBinarySchema = ComplexBinarySchema> = {
-  kind: SchemaKind.BinaryComplex
+type ComplexBinaryColumn<$Schema extends BinaryObjectSchema = BinaryObjectSchema> = {
+  kind: SchemaKind.BinaryObject
   schema: $Schema
   data: { [K in keyof Shape<$Schema>]: Construct<Shape<$Schema>[K]["binary"]> }
 }
 
-type SimpleNativeColumn<$Schema extends SimpleNativeSchema = SimpleNativeSchema> = {
-  kind: SchemaKind.NativeSimple
+type ScalarNativeColumn<$Schema extends NativeScalarSchema = NativeScalarSchema> = {
+  kind: SchemaKind.NativeScalar
   schema: $Schema
   data: number[]
 }
 
-type ComplexNativeColumn<$Schema extends ComplexNativeSchema = ComplexNativeSchema> = {
-  kind: SchemaKind.NativeComplex
+type ComplexNativeColumn<$Schema extends NativeObjectSchema = NativeObjectSchema> = {
+  kind: SchemaKind.NativeObject
   schema: $Schema
   data: NativeData<Shape<$Schema>>[]
 }
 
-type DeriveColumnShape<$Schema extends Schema> = $Schema extends SimpleBinarySchema
-  ? SimpleBinaryColumn<$Schema>
-  : $Schema extends ComplexBinarySchema
+type DeriveColumnShape<$Schema extends Schema> = $Schema extends BinaryScalarSchema
+  ? ScalarBinaryColumn<$Schema>
+  : $Schema extends BinaryObjectSchema
   ? ComplexBinaryColumn<$Schema>
-  : $Schema extends SimpleNativeSchema
-  ? SimpleNativeColumn<$Schema>
-  : $Schema extends ComplexNativeSchema
+  : $Schema extends NativeScalarSchema
+  ? ScalarNativeColumn<$Schema>
+  : $Schema extends NativeObjectSchema
   ? ComplexNativeColumn<$Schema>
   : never
 
@@ -105,14 +105,14 @@ const ArrayBufferConstructor = globalThis.SharedArrayBuffer ?? globalThis.ArrayB
 function makeArchetypeColumn(schema: Schema, size: number): ArchetypeColumn {
   let data: ArchetypeColumn["data"]
   switch (schema.kind) {
-    case SchemaKind.BinarySimple: {
+    case SchemaKind.BinaryScalar: {
       const buffer = new ArrayBufferConstructor(
         size * schema.shape.binary.BYTES_PER_ELEMENT,
       )
       data = new schema.shape.binary(buffer)
       break
     }
-    case SchemaKind.BinaryComplex: {
+    case SchemaKind.BinaryObject: {
       data = Object.entries(schema.shape).reduce((a, [memberName, memberNode]) => {
         const buffer = new ArrayBufferConstructor(
           size * memberNode.binary.BYTES_PER_ELEMENT,
@@ -122,8 +122,8 @@ function makeArchetypeColumn(schema: Schema, size: number): ArchetypeColumn {
       }, {} as { [key: string]: TypedArray })
       break
     }
-    case SchemaKind.NativeSimple:
-    case SchemaKind.NativeComplex:
+    case SchemaKind.NativeScalar:
+    case SchemaKind.NativeObject:
       data = []
       break
   }
@@ -169,6 +169,8 @@ export function makeArchetype<$Type extends Type>(
     layout[schemaId] = i
   }
   return {
+    // @ts-ignore
+    id: Math.random(),
     edgesSet: [],
     edgesUnset: [],
     entities,
@@ -216,18 +218,18 @@ export function removeFromArchetype(archetype: Archetype, entity: number) {
       const column = archetype.table[i]
       invariant(column !== undefined)
       switch (column.kind) {
-        case SchemaKind.BinarySimple:
+        case SchemaKind.BinaryScalar:
           column.data[index] = 0
           break
-        case SchemaKind.BinaryComplex:
+        case SchemaKind.BinaryObject:
           for (const key in column.schema.shape) {
             const array = column.data[key]
             invariant(array !== undefined)
             array[index] = 0
           }
           break
-        case SchemaKind.NativeSimple:
-        case SchemaKind.NativeComplex:
+        case SchemaKind.NativeScalar:
+        case SchemaKind.NativeObject:
           column.data.pop()
           break
       }
@@ -239,13 +241,13 @@ export function removeFromArchetype(archetype: Archetype, entity: number) {
       const column = archetype.table[i]
       invariant(column !== undefined)
       switch (column.kind) {
-        case SchemaKind.BinarySimple:
+        case SchemaKind.BinaryScalar:
           const data = column.data[from]
           invariant(data !== undefined)
           column.data[from] = 0
           column.data[index] = data
           break
-        case SchemaKind.BinaryComplex:
+        case SchemaKind.BinaryObject:
           for (const key in column.schema.shape) {
             const array = column.data[key]
             invariant(array !== undefined)
@@ -255,8 +257,8 @@ export function removeFromArchetype(archetype: Archetype, entity: number) {
             array[index] = data
           }
           break
-        case SchemaKind.NativeSimple:
-        case SchemaKind.NativeComplex: {
+        case SchemaKind.NativeScalar:
+        case SchemaKind.NativeObject: {
           const data = column.data.pop()
           invariant(data !== undefined)
           column.data[index] = data
@@ -314,7 +316,7 @@ export function moveToArchetypeSwap<$SchemaId extends SchemaId>(
     invariant(prevColumn !== undefined)
     const copy = prev.type[i] === next.type[j]
     switch (prevColumn.kind) {
-      case SchemaKind.BinarySimple: {
+      case SchemaKind.BinaryScalar: {
         if (copy) {
           invariant(nextColumn !== undefined && nextColumn.kind === prevColumn.kind)
           const copyValue = prevColumn.data[prevIndex]
@@ -327,7 +329,7 @@ export function moveToArchetypeSwap<$SchemaId extends SchemaId>(
         prevColumn.data[swapIndex] = 0
         break
       }
-      case SchemaKind.BinaryComplex:
+      case SchemaKind.BinaryObject:
         for (const key in prevColumn.schema.shape) {
           const prevArray = prevColumn.data[key]
           invariant(prevArray !== undefined)
@@ -345,8 +347,8 @@ export function moveToArchetypeSwap<$SchemaId extends SchemaId>(
           prevArray[swapIndex] = 0
         }
         break
-      case SchemaKind.NativeSimple:
-      case SchemaKind.NativeComplex: {
+      case SchemaKind.NativeScalar:
+      case SchemaKind.NativeObject: {
         if (copy) {
           invariant(nextColumn !== undefined && nextColumn.kind === prevColumn.kind)
           const copyValue = prevColumn.data[prevIndex]
@@ -394,7 +396,7 @@ export function moveToArchetypePop<$SchemaId extends SchemaId>(
     invariant(prevColumn !== undefined)
     const copy = prev.type[i] === next.type[j]
     switch (prevColumn.kind) {
-      case SchemaKind.BinarySimple:
+      case SchemaKind.BinaryScalar:
         if (copy) {
           invariant(nextColumn !== undefined && nextColumn.kind === prevColumn.kind)
           const copyValue = prevColumn.data[prevIndex]
@@ -403,7 +405,7 @@ export function moveToArchetypePop<$SchemaId extends SchemaId>(
         }
         prevColumn.data[prevIndex] = 0
         break
-      case SchemaKind.BinaryComplex:
+      case SchemaKind.BinaryObject:
         for (const key in prevColumn.schema.shape) {
           const prevArray = prevColumn.data[key]
           invariant(prevArray !== undefined)
@@ -418,8 +420,8 @@ export function moveToArchetypePop<$SchemaId extends SchemaId>(
           prevArray[prevIndex] = 0
         }
         break
-      case SchemaKind.NativeSimple:
-      case SchemaKind.NativeComplex: {
+      case SchemaKind.NativeScalar:
+      case SchemaKind.NativeObject: {
         const copyValue = prevColumn.data.pop()
         if (copy) {
           invariant(nextColumn !== undefined && nextColumn.kind === prevColumn.kind)
@@ -454,11 +456,11 @@ function insert<$SchemaId extends SchemaId>(
   const column = archetype.table[columnIndex]
   invariant(column !== undefined)
   switch (column.kind) {
-    case SchemaKind.BinarySimple:
+    case SchemaKind.BinaryScalar:
       invariant(typeof data === "number")
       column.data[length] = data
       break
-    case SchemaKind.BinaryComplex:
+    case SchemaKind.BinaryObject:
       for (const key in column.schema.shape) {
         invariant(typeof data === "object")
         const nextArray = column.data[key]
@@ -468,8 +470,8 @@ function insert<$SchemaId extends SchemaId>(
         nextArray[length] = value
       }
       break
-    case SchemaKind.NativeSimple:
-    case SchemaKind.NativeComplex:
+    case SchemaKind.NativeScalar:
+    case SchemaKind.NativeObject:
       invariant(typeof data === "number" || typeof data === "object")
       column.data[length] = data
       break

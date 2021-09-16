@@ -1,5 +1,5 @@
 import { invariant } from "./debug"
-import { SchemaId } from "./schema"
+import { SchemaId } from "./model"
 
 export type Type = ReadonlyArray<SchemaId>
 

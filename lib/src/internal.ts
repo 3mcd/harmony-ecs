@@ -1,2 +1,2 @@
 // symbols
-export const internal$harmonyFormat = Symbol("harmony_format")
+export const internal$harmonyFormat = Symbol("h_fmt")

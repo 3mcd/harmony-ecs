@@ -2,7 +2,7 @@ import { Archetype, ArchetypeColumn, ArchetypeTable } from "./archetype"
 import { findOrMakeArchetype } from "./archetype_graph"
 import { invariant } from "./debug"
 import { Entity } from "./entity"
-import { SchemaId } from "./schema"
+import { SchemaId } from "./model"
 import { invariantTypeNormalized, isSupersetOf, normalizeType, Type } from "./type"
 import { World } from "./world"
 

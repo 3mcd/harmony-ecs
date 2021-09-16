@@ -20,6 +20,7 @@
     "perf:browser": "npm run build && cd ./perf && vite",
     "example:compat": " cd ./examples/compat && vite",
     "example:noise": " cd ./examples/noise && vite",
+    "example:graph": " cd ./examples/graph && vite",
     "build": "tsc -b lib && npm run build:optimize && npm run build:cjs && tsc -b perf",
     "build:optimize": "node lib/build/optimize.js",
     "build:cjs": "esbuild --bundle --target=node12.22 --outdir=lib/dist/cjs --format=cjs lib/dist/esm/index.js",
