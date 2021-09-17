@@ -119,23 +119,23 @@ export function maybeSupersetOf(outer: Type, inner: Type) {
   return true
 }
 
-export function getIdsBetween(outer: Type, inner: Type) {
-  invariantIsSupersetOf(outer, inner)
+export function getIdsBetween(right: Type, left: Type) {
+  invariantIsSupersetOf(right, left)
   let o = 0
   let i = 0
   const path: SchemaId[] = []
-  if (outer.length - inner.length === 1) {
+  if (right.length - left.length === 1) {
     let j = 0
-    let length = outer.length
-    for (; j < length && outer[j] === inner[j]; j++) {}
-    const t = outer[j]
+    let length = right.length
+    for (; j < length && right[j] === left[j]; j++) {}
+    const t = right[j]
     invariant(t !== undefined)
     path.push(t)
     return path
   }
-  while (o < outer.length - 1) {
-    const outerId = outer[o]
-    const innerId = inner[i]
+  while (o < right.length - 1) {
+    const outerId = right[o]
+    const innerId = left[i]
     invariant(outerId !== undefined)
     if (innerId === undefined || outerId < innerId) {
       path.push(outerId)
