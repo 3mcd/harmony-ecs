@@ -169,8 +169,6 @@ export function makeArchetype<$Type extends Type>(
     layout[schemaId] = i
   }
   return {
-    // @ts-ignore
-    id: Math.random(),
     edgesSet: [],
     edgesUnset: [],
     entities,
