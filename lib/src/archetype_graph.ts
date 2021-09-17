@@ -39,11 +39,15 @@ function makeArchetypeEnsurePath(
   let left = root
   for (let i = 0; i < type.length; i++) {
     const id = type[i]!
-    let right = left.edgesSet[id]
-    if (right === undefined) {
-      right = makeArchetype(world, [...left.type, id])
+    let right = left.edgesSet[id] ?? null
+    if (right === null) {
+      const type = addToType(left.type, id)
+      right = findArchetype(world, type)
+      if (right === null) {
+        right = makeArchetype(world, type)
+        emit.push(right)
+      }
       makeEdge(left, right, id)
-      emit.push(right)
     }
     left = right
   }
@@ -64,73 +68,115 @@ export function findArchetype(world: World, type: Type) {
   return left
 }
 
-function makeArbitraryPath(
-  world: World,
-  sup: Archetype,
-  sub: Archetype,
-  emit: Archetype[],
-) {
-  const ids = getIdsBetween(sup.type, sub.type)
-  let left = sub
+function ensurePath(world: World, right: Archetype, left: Archetype, emit: Archetype[]) {
+  if (hasPath(left, right)) return
+  const ids = getIdsBetween(right.type, left.type)
+  let node = left
   for (let i = 0; i < ids.length; i++) {
     const id = ids[i]
     invariant(id !== undefined)
-    const type = addToType(left.type, id)
+    const type = addToType(node.type, id)
     let right = findArchetype(world, type)
     if (right === null) {
       right = makeArchetypeEnsurePath(world, world.archetypeRoot, type, emit)
     }
-    makeEdge(left, right, id)
+    makeEdge(node, right, id)
+    node = right
+  }
+  return node
+}
+
+function hasPathTraverse(left: Archetype, ids: number[]) {
+  for (let i = 0; i < ids.length; i++) {
+    const id = ids[i]
+    invariant(id !== undefined)
+    const next = left.edgesSet[id]
+    if (next !== undefined) {
+      if (ids.length === 1) {
+        return true
+      }
+      const nextIds = ids.slice()
+      const swapId = nextIds.pop()
+      if (i !== nextIds.length) {
+        invariant(swapId !== undefined)
+        nextIds[i] = swapId
+      }
+      if (hasPathTraverse(next, nextIds)) {
+        return true
+      }
+    }
+  }
+  return false
+}
+
+function hasPath(left: Archetype, right: Archetype) {
+  const ids = getIdsBetween(right.type, left.type)
+  return hasPathTraverse(left, ids)
+}
+
+function connectArchetype(
+  world: World,
+  visiting: Archetype,
+  inserted: Archetype,
+  emit: Archetype[],
+  visited = new Set(emit),
+) {
+  if (visiting === world.archetypeRoot) {
+    visiting.edgesSet.forEach(right => connectArchetype(world, right, inserted, emit))
+    return
+  }
+  if (visited.has(visiting)) {
+    return
+  }
+  visited.add(visiting)
+  if (isSupersetOf(visiting.type, inserted.type)) {
+    ensurePath(world, visiting, inserted, emit)
+  }
+  if (isSupersetOf(inserted.type, visiting.type) && visiting !== world.archetypeRoot) {
+    ensurePath(world, inserted, visiting, emit)
+  }
+  visiting.edgesSet.forEach(function connectNextArchetype(next) {
+    if (
+      !(
+        maybeSupersetOf(next.type, inserted.type) ||
+        maybeSupersetOf(inserted.type, next.type)
+      )
+    ) {
+      return
+    }
+    connectArchetype(world, next, inserted, emit)
+  })
+}
+
+function insert(world: World, root: Archetype, type: Type, emit: Archetype[]) {
+  let left = root
+  for (let i = 0; i < type.length; i++) {
+    const id = type[i]!
+    let right = left.edgesSet[id] ?? null
+    if (right === null) {
+      const type = addToType(left.type, id)
+      right = findArchetype(world, type)
+      let connect = false
+      if (right === null) {
+        right = makeArchetype(world, type)
+        emit.push(right)
+        connect = true
+      }
+      makeEdge(left, right, id)
+      if (connect) {
+        connectArchetype(world, world.archetypeRoot, right, emit)
+      }
+    }
     left = right
   }
   return left
 }
 
-function traverseInsert(
-  world: World,
-  root: Archetype,
-  node: Archetype,
-  emit: Archetype[],
-  visited = new Set<Archetype>([node]),
-) {
-  if (visited.has(root)) {
-    return
-  }
-  visited.add(root)
-  if (isSupersetOf(node.type, root.type) && root !== world.archetypeRoot) {
-    makeArbitraryPath(world, node, root, emit)
-  }
-  if (isSupersetOf(root.type, node.type)) {
-    makeArbitraryPath(world, root, node, emit)
-  }
-  if (maybeSupersetOf(root.type, node.type) || maybeSupersetOf(node.type, root.type)) {
-    root.edgesSet.forEach(right => traverseInsert(world, right, node, emit, visited))
-  }
-}
-
-// This algorithm has three parts:
-// (1) Create the initial chain of archetypes. For example, inserting the
-//     archetype (1,2,3) produces a chain (from the root) of
-//     (1)–>(1,2)–>(1,2,3).
-// (2) Recursively visit each archetype in the graph. If the visited node is a
-//     superset of the inserted node (i.e. of greater length and contains each
-//     schema id of the inserted node), we create a chain of archetypes between
-//     them.
-// (3) Track and emit all added archetypes.
 export function findOrMakeArchetype(world: World, type: Type) {
   let emit: Archetype[] = []
-  // (1)
-  const archetype = makeArchetypeEnsurePath(world, world.archetypeRoot, type, emit)
-  // (2)
-  for (let i = 0; i < emit.length; i++) {
-    const node = emit[i]
-    invariant(node !== undefined)
-    traverseInsert(world, world.archetypeRoot, node, emit)
-  }
-  // (3)
+  const archetype = insert(world, world.archetypeRoot, type, emit)
   for (let i = 0; i < emit.length; i++) {
     emitArchetype(emit[i]!)
   }
-
   return archetype
 }

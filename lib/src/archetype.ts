@@ -160,7 +160,7 @@ export function makeArchetype<$Type extends Type>(
 ): Archetype<$Type> {
   invariantTypeNormalized(type)
   const entities: Entity[] = []
-  const entityIndex: number[] = Array(world.size)
+  const entityIndex: number[] = []
   const table = makeArchetypeTable(world, type)
   const layout: number[] = []
   for (let i = 0; i < type.length; i++) {

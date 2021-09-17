@@ -12,6 +12,7 @@ function makeTypeId(type: Type) {
   return type.join(",")
 }
 
+const $log = document.getElementById("log")!
 const $type = document.getElementById("type") as HTMLInputElement
 const $network = document.getElementById("network")!
 const $insert = document.getElementById("insert")!
@@ -37,7 +38,7 @@ function maybeMakeEdge(a: Type, b: Type) {
 
 function onArchetypeInsert(archetype: Archetype) {
   const id = makeTypeId(archetype.type)
-  nodes.add({ id: id, label: `(${id})`, count: 0 })
+  nodes.add({ id: id, label: `(${id})`, count: 0, level: archetype.type.length })
   archetype.edgesSet.forEach(({ type }) => maybeMakeEdge(archetype.type, type))
   archetype.edgesUnset.forEach(({ type }) => maybeMakeEdge(archetype.type, type))
 }
@@ -58,8 +59,12 @@ function onInsertEntity() {
   total++
   nodes.update({ id, count })
   nodes.forEach(node =>
-    nodes.update({ id: node.id, color: { background: getColor(node.count / total) } }),
+    nodes.update({
+      id: node.id,
+      color: { background: node.count > 0 ? getColor(node.count / total) : undefined },
+    }),
   )
+  $log.textContent += `${id}\n`
   $type.value = ""
 }
 
@@ -77,11 +82,28 @@ new Network(
     edges,
   },
   {
-    physics: {
-      maxVelocity: 5,
+    nodes: {
+      physics: false,
+    },
+    layout: {
+      hierarchical: {
+        // enabled: true,
+        levelSeparation: 200,
+        nodeSpacing: 70,
+        treeSpacing: 100,
+        blockShifting: true,
+        edgeMinimization: true,
+        parentCentralization: true,
+        direction: "LR",
+        sortMethod: "directed", // hubsize, directed,
+      },
     },
   },
 )
 
+import * as Harmony from "../../../lib/src"
+
 //@ts-ignore
 globalThis.world = world
+// @ts-ignore
+globalThis.Harmony = Harmony
