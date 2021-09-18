@@ -46,7 +46,7 @@ function onArchetypeInsert(archetype: Archetype) {
 world.archetypeRoot.onArchetypeInsert(onArchetypeInsert)
 onArchetypeInsert(world.archetypeRoot)
 
-let total = 0
+let max = 0
 
 function onInsertEntity() {
   const type = Array.from($type.value.split(/[\s,]+/).map(Number))
@@ -56,12 +56,14 @@ function onInsertEntity() {
   makeEntity(world, type)
   const node = nodes.get(id)!
   const count = node.count + 1
-  total++
+  if (count > max) {
+    max = count
+  }
   nodes.update({ id, count })
   nodes.forEach(node =>
     nodes.update({
       id: node.id,
-      color: { background: node.count > 0 ? getColor(node.count / total) : undefined },
+      color: { background: node.count > 0 ? getColor(node.count / max) : undefined },
     }),
   )
   $log.textContent += `${id}\n`
