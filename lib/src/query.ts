@@ -1,8 +1,9 @@
-import { Archetype, ArchetypeColumn, ArchetypeTable } from "./archetype"
+import { Archetype, ArchetypeColumn } from "./archetype"
 import { findOrMakeArchetype } from "./archetype_graph"
 import { invariant } from "./debug"
 import { Entity } from "./entity"
 import { SchemaId } from "./model"
+import { subscribe } from "./signal"
 import { invariantTypeNormalized, isSupersetOf, normalizeType, Type } from "./type"
 import { World } from "./world"
 
@@ -49,7 +50,7 @@ function maybeBindArchetype<$Type extends Type>(
     if (archetype.real) {
       bindArchetype(records, layout, archetype)
     } else {
-      const unsubscribe = archetype.onRealize(() => {
+      const unsubscribe = subscribe(archetype.onRealize, () => {
         bindArchetype(records, layout, archetype)
         unsubscribe()
       })
@@ -113,7 +114,7 @@ export function makeQuery<$Type extends Type>(
   const type = normalizeType(layout)
   const identity = findOrMakeArchetype(world, type)
   const query = makeStaticQueryInternal(type, layout, identity, filters)
-  identity.onArchetypeInsert(archetype =>
+  subscribe(identity.onArchetypeInsert, archetype =>
     maybeBindArchetype(query, type, layout, archetype, filters),
   )
   return query

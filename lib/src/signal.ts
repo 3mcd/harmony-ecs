@@ -1,26 +1,27 @@
 import { invariant } from "./debug"
 
 export type SignalSubscriber<T> = (t: T) => void
-export type Signal<T> = ((subscriber: SignalSubscriber<T>) => () => void) & {
-  dispatch: (t: T) => void
-}
+export type Signal<T = void> = { subscribers: SignalSubscriber<T>[] }
 
 export function makeSignal<T>(): Signal<T> {
   const subscribers: SignalSubscriber<T>[] = []
-  function subscribe(subscriber: SignalSubscriber<T>) {
-    const index = subscribers.push(subscriber) - 1
-    return function unsubscribe() {
-      subscribers.splice(index, 1)
-    }
+  return { subscribers }
+}
+
+export function subscribe<T>(signal: Signal<T>, subscriber: SignalSubscriber<T>) {
+  const index = signal.subscribers.push(subscriber) - 1
+  return function unsubscribe() {
+    signal.subscribers.splice(index, 1)
   }
-  function dispatch(t: T) {
-    for (let i = subscribers.length - 1; i >= 0; i--) {
-      const subscriber = subscribers[i]
-      invariant(subscriber !== undefined)
-      subscriber(t)
-    }
+}
+
+type X<T> = T extends void ? true : false
+type Y = X<{}>
+
+export function dispatch<T>(signal: Signal<T>, t: T) {
+  for (let i = signal.subscribers.length - 1; i >= 0; i--) {
+    const subscriber = signal.subscribers[i]
+    invariant(subscriber !== undefined)
+    subscriber(t!)
   }
-  return Object.assign(subscribe, {
-    dispatch,
-  })
 }

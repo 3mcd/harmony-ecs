@@ -1,6 +1,7 @@
 import { Archetype, makeArchetype } from "./archetype"
 import { invariant } from "./debug"
 import { SchemaId } from "./model"
+import { dispatch } from "./signal"
 import { addToType, getIdsBetween, isSupersetOf, maybeSupersetOf, Type } from "./type"
 import { World } from "./world"
 
@@ -23,7 +24,7 @@ function emitArchetype(archetype: Archetype) {
     const next = node.edgesUnset[index]
     if (next && !visited.has(next)) {
       visited.add(next)
-      next.onArchetypeInsert.dispatch(archetype)
+      dispatch(next.onArchetypeInsert, archetype)
       stack[i++] = 0
       stack[i++] = next
     }
@@ -114,37 +115,35 @@ function hasPath(left: Archetype, right: Archetype) {
   return hasPathTraverse(left, ids)
 }
 
-function connectArchetype(
+function connectArchetypeTraverse(
   world: World,
   visiting: Archetype,
   inserted: Archetype,
   emit: Archetype[],
   visited = new Set(emit),
 ) {
-  if (visiting === world.archetypeRoot) {
-    visiting.edgesSet.forEach(right => connectArchetype(world, right, inserted, emit))
-    return
-  }
-  if (visited.has(visiting)) {
-    return
-  }
   visited.add(visiting)
   if (isSupersetOf(visiting.type, inserted.type)) {
     ensurePath(world, visiting, inserted, emit)
+    return
   }
   if (isSupersetOf(inserted.type, visiting.type) && visiting !== world.archetypeRoot) {
     ensurePath(world, inserted, visiting, emit)
   }
   visiting.edgesSet.forEach(function connectNextArchetype(next) {
     if (
-      !(
-        maybeSupersetOf(next.type, inserted.type) ||
-        maybeSupersetOf(inserted.type, next.type)
-      )
+      !visited.has(next) &&
+      (maybeSupersetOf(next.type, inserted.type) ||
+        maybeSupersetOf(inserted.type, next.type))
     ) {
-      return
+      connectArchetypeTraverse(world, next, inserted, emit, visited)
     }
-    connectArchetype(world, next, inserted, emit)
+  })
+}
+
+function connectArchetype(world: World, inserted: Archetype, emit: Archetype[]) {
+  world.archetypeRoot.edgesSet.forEach(function connectArchetypeFromBase(node) {
+    connectArchetypeTraverse(world, node, inserted, emit)
   })
 }
 
@@ -164,7 +163,7 @@ function insert(world: World, root: Archetype, type: Type, emit: Archetype[]) {
       }
       makeEdge(left, right, id)
       if (connect) {
-        connectArchetype(world, world.archetypeRoot, right, emit)
+        connectArchetype(world, right, emit)
       }
     }
     left = right

@@ -1,19 +1,19 @@
 import { invariant } from "./debug"
 import { Entity } from "./entity"
 import {
-  BinarySchema,
   BinaryObjectSchema,
-  NativeObjectSchema,
+  BinaryScalarSchema,
+  BinarySchema,
   Format,
+  NativeObjectSchema,
+  NativeScalarSchema,
   NativeSchema,
   Schema,
   SchemaId,
   SchemaKind,
   Shape,
-  BinaryScalarSchema,
-  NativeScalarSchema,
 } from "./model"
-import { makeSignal, Signal } from "./signal"
+import { dispatch, makeSignal, Signal } from "./signal"
 import { invariantTypeNormalized, Type } from "./type"
 import { Construct, TypedArray } from "./types"
 import { findSchemaById, World } from "./world"
@@ -199,7 +199,7 @@ export function insertIntoArchetype<$Type extends Type>(
   archetype.entityIndex[entity] = index
   if (archetype.real === false) {
     archetype.real = true
-    archetype.onRealize.dispatch()
+    dispatch(archetype.onRealize, undefined)
   }
 }
 
@@ -285,7 +285,7 @@ export function moveToArchetype<$SchemaId extends SchemaId>(
   }
   if (next.real === false) {
     next.real = true
-    next.onRealize.dispatch()
+    dispatch(next.onRealize, undefined)
   }
 }
 

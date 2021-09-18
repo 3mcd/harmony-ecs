@@ -43,7 +43,7 @@ function onArchetypeInsert(archetype: Archetype) {
   archetype.edgesUnset.forEach(({ type }) => maybeMakeEdge(archetype.type, type))
 }
 
-world.archetypeRoot.onArchetypeInsert(onArchetypeInsert)
+subscribe(world.archetypeRoot.onArchetypeInsert, onArchetypeInsert)
 onArchetypeInsert(world.archetypeRoot)
 
 let max = 0
@@ -104,6 +104,7 @@ new Network(
 )
 
 import * as Harmony from "../../../lib/src"
+import { subscribe } from "../../../lib/src/signal"
 
 //@ts-ignore
 globalThis.world = world

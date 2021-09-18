@@ -15,7 +15,11 @@
       }
       .controls {
         position: relative;
+        pointer-events: none;
         z-index: 1;
+      }
+      .controls > *:not(pre) {
+        pointer-events: auto;
       }
     </style>
   </head>
