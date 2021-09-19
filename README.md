@@ -1,18 +1,13 @@
 # harmony-ecs
 
-An archetypal ECS focused on compatibility and performance. Harmony has a small footprint, making it a good set of building blocks to make a full ECS with.
-
-I wrote a short article that describes the motivation for this project called _[ECS in JS – Storage Mechanisms](https://javelin.hashnode.dev/ecs-in-js-storage-mechanisms)_.
-
-Harmony will eventually be incorporated into [Javelin](https://github.com/3mcd/javelin), a more feature-rich ECS focused on multiplayer game development. Use at your own risk: the library is in a phase of early development so things will break often!
+An Entity-Component-System (ECS) focused on compatibility and performance. Harmony has a small footprint, making it a good set of building blocks to create a full ECS with.
 
 ## Features
 
-- Written in TypeScript
 - Hybrid struct-of-array `{x: [0]}` and array-of-struct `[{x: 0}]` storage
-- Data flexibility e.g., `1.23` and `{position: {x: 1.23}}` are both valid components
+- Scalar and complex components e.g., `1.23` and `{position: {x: 1.23}}`
 - Fast iteration and mutation ([benchmarks](https://github.com/3mcd/ecs-benchmark/tree/harmony-ecs))
-- Fast insert/relocate and auto-updating queries via [connected archetype graph](./graph.png)
+- Fast insert/relocate and auto-updating queries thanks to a [connected archetype graph](./graph.png)
 - Compatible with third-party libraries like Three.js, Cannon, etc.
 
 ## Installation
@@ -23,13 +18,13 @@ npm install harmony-ecs
 
 ## Documentation
 
-Some nascent documentation resides on the repository [wiki](https://github.com/3mcd/harmony-ecs/wiki).
+Documentation currently resides on the repository [wiki](https://github.com/3mcd/harmony-ecs/wiki).
 
 ## Examples
 
 This repo contains examples in the [`examples`](./examples) directory. You can run each project using `npm run example:*`, where `*` is the name of an example subdirectory.
 
-Below is a sample of Harmony's API, where a TypedArray-based `Velocity` component is used to update an object-based `Position` component:
+Below is a sample of Harmony's API, where a TypedArray `Velocity` component is used to update an object `Position` component:
 
 ```ts
 import * as Harmony from "./lib/dist"
