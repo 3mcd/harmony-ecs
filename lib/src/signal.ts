@@ -15,9 +15,6 @@ export function subscribe<T>(signal: Signal<T>, subscriber: SignalSubscriber<T>)
   }
 }
 
-type X<T> = T extends void ? true : false
-type Y = X<{}>
-
 export function dispatch<T>(signal: Signal<T>, t: T) {
   for (let i = signal.subscribers.length - 1; i >= 0; i--) {
     const subscriber = signal.subscribers[i]

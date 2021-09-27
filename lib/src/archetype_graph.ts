@@ -5,13 +5,11 @@ import { dispatch } from "./signal"
 import { addToType, getIdsBetween, isSupersetOf, maybeSupersetOf, Type } from "./type"
 import { World } from "./world"
 
-function makeEdge(left: Archetype, right: Archetype, id: SchemaId) {
-  left.edgesSet[id] = right
-  right.edgesUnset[id] = left
-}
-
-function emitArchetype(archetype: Archetype) {
-  const visited = new Set<Archetype>()
+export function traverseLeft(
+  archetype: Archetype,
+  iteratee: (archetype: Archetype) => unknown,
+  visited = new Set<Archetype>(),
+) {
   const stack: (Archetype | number)[] = [0, archetype]
   let i = stack.length
   while (i > 0) {
@@ -24,11 +22,44 @@ function emitArchetype(archetype: Archetype) {
     const next = node.edgesUnset[index]
     if (next && !visited.has(next)) {
       visited.add(next)
-      dispatch(next.onArchetypeInsert, archetype)
+      iteratee(next)
       stack[i++] = 0
       stack[i++] = next
     }
   }
+}
+
+export function traverseRight(
+  archetype: Archetype,
+  iteratee: (archetype: Archetype) => unknown,
+  visited = new Set<Archetype>(),
+) {
+  const stack: (Archetype | number)[] = [0, archetype]
+  let i = stack.length
+  while (i > 0) {
+    const node = stack[--i] as Archetype
+    const index = stack[--i] as number
+    if (index < node.edgesSet.length - 1) {
+      stack[i++] = index + 1
+      stack[i++] = node
+    }
+    const next = node.edgesSet[index]
+    if (next && !visited.has(next)) {
+      visited.add(next)
+      iteratee(next)
+      stack[i++] = 0
+      stack[i++] = next
+    }
+  }
+}
+
+function emitArchetype(archetype: Archetype) {
+  traverseLeft(archetype, a => dispatch(a.onArchetypeInsert, archetype))
+}
+
+function makeEdge(left: Archetype, right: Archetype, id: SchemaId) {
+  left.edgesSet[id] = right
+  right.edgesUnset[id] = left
 }
 
 function makeArchetypeEnsurePath(

@@ -6,8 +6,8 @@ import {
   moveToArchetype,
   NativeData,
   removeFromArchetype,
-  traverseSet,
-  traverseUnset,
+  moveRight,
+  moveLeft,
 } from "./archetype"
 import { findOrMakeArchetype } from "./archetype_graph"
 import { invariant } from "./debug"
@@ -111,7 +111,7 @@ export function set<$SchemaId extends SchemaId>(
     setEntityArchetype(world, entity, identity)
   } else {
     const next =
-      traverseSet(prev, schemaId) ??
+      moveRight(prev, schemaId) ??
       findOrMakeArchetype(world, addToType(prev.type, schemaId))
     if (prev.entities[prev.entities.length - 1] === undefined) {
       debugger
@@ -128,7 +128,7 @@ export function unset<$SchemaId extends SchemaId>(
 ) {
   const prev = getEntityLocation(world, entity)
   const next =
-    traverseUnset(prev, id) ?? findOrMakeArchetype(world, removeFromType(prev.type, id))
+    moveLeft(prev, id) ?? findOrMakeArchetype(world, removeFromType(prev.type, id))
   moveToArchetype(prev, next, entity)
   setEntityArchetype(world, entity, next)
 }

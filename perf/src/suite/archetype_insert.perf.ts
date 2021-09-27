@@ -1,5 +1,3 @@
-import { DataSet } from "vis-data"
-import { Network, Edge } from "vis-network"
 import * as Harmony from "../../../lib/src"
 import { makeBinarySchema, makeEntity, makeWorld, World } from "../../../lib/src"
 import { Archetype } from "../../../lib/src/archetype"
@@ -67,56 +65,6 @@ console.log(
     getUniqueArchetypes(world!.archetypeRoot).size
   } archetype insert took ${avgTime.toFixed(2)}ms`,
 )
-
-function getColor(value: number) {
-  return ["hsl(", ((1 - value) * 120).toString(10), ",100%,50%)"].join("")
-}
-
-function insertGraphData(
-  archetype: Archetype,
-  nodes: Set<Archetype>,
-  edges: Edge[] = [],
-) {
-  if (nodes.has(archetype)) return
-  const outer = archetype.type.toString()
-  if (archetype.type.length > 0) {
-    nodes.add(archetype)
-  }
-  archetype.edgesSet.forEach(a => {
-    const inner = a.type.toString()
-    edges.push({ from: outer, to: inner })
-    insertGraphData(a, nodes, edges)
-  })
-}
-
-if (typeof window === "object") {
-  const nodes = new Set<Archetype>()
-  const edges: Edge[] = []
-  insertGraphData(world!.archetypeRoot, nodes, edges)
-  // create a network
-  const container = document.getElementById("archetypes")
-  const data = {
-    nodes: new DataSet(
-      Array.from(nodes).map(archetype => ({
-        id: archetype.type.toString(),
-        label: `(${archetype.type.map(x => String.fromCharCode(65 + x))})`,
-        color: archetype.real ? getColor(archetype.entities.length / 100) : "#cccccc",
-      })),
-    ),
-    edges: new DataSet(edges),
-  }
-  const options = {
-    layout: {
-      randomSeed: 1,
-      improvedLayout: true,
-      hierarchical: {
-        direction: "LR",
-        sortMethod: "directed",
-      },
-    },
-  }
-  const network = new Network(container!, data, options)
-}
 
 export const run = makePerfOnce(() => {})
 ;(globalThis as any).world = world!

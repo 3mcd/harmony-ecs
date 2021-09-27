@@ -92,6 +92,8 @@ export type Archetype<$Type extends Type = Type> = {
   real: boolean
   onArchetypeInsert: Signal<Archetype>
   onRealize: Signal<void>
+  onEnter: Signal<Entity[]>
+  onExit: Signal<Entity[]>
   table: ArchetypeTable<$Type>
   type: $Type
 }
@@ -149,6 +151,8 @@ export function makeRootArchetype(): Archetype {
     real: false,
     onArchetypeInsert: makeSignal(),
     onRealize: makeSignal(),
+    onEnter: makeSignal(),
+    onExit: makeSignal(),
     table: [],
     type: [],
   }
@@ -177,6 +181,8 @@ export function makeArchetype<$Type extends Type>(
     real: false,
     onArchetypeInsert: makeSignal(),
     onRealize: makeSignal(),
+    onEnter: makeSignal(),
+    onExit: makeSignal(),
     table,
     type,
   }
@@ -476,10 +482,10 @@ function insert<$SchemaId extends SchemaId>(
   }
 }
 
-export function traverseSet(archetype: Archetype, schemaId: SchemaId) {
+export function moveRight(archetype: Archetype, schemaId: SchemaId) {
   return archetype.edgesSet[schemaId]
 }
 
-export function traverseUnset(archetype: Archetype, schemaId: SchemaId) {
+export function moveLeft(archetype: Archetype, schemaId: SchemaId) {
   return archetype.edgesUnset[schemaId]
 }
