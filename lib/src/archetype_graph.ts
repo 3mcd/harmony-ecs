@@ -71,11 +71,11 @@ function makeArchetypeEnsurePath(
   let left = root
   for (let i = 0; i < type.length; i++) {
     const id = type[i]!
-    let right = left.edgesSet[id] ?? null
-    if (right === null) {
+    let right = left.edgesSet[id]
+    if (right === undefined) {
       const type = addToType(left.type, id)
       right = findArchetype(world, type)
-      if (right === null) {
+      if (right === undefined) {
         right = makeArchetype(world, type)
         emit.push(right)
       }
@@ -93,7 +93,7 @@ export function findArchetype(world: World, type: Type) {
     invariant(id !== undefined)
     const right = left.edgesSet[id]
     if (right === undefined) {
-      return null
+      return
     }
     left = right
   }
@@ -109,7 +109,7 @@ function ensurePath(world: World, right: Archetype, left: Archetype, emit: Arche
     invariant(id !== undefined)
     const type = addToType(node.type, id)
     let right = findArchetype(world, type)
-    if (right === null) {
+    if (right === undefined) {
       right = makeArchetypeEnsurePath(world, world.archetypeRoot, type, emit)
     }
     makeEdge(node, right, id)
@@ -182,12 +182,12 @@ function insert(world: World, root: Archetype, type: Type, emit: Archetype[]) {
   let left = root
   for (let i = 0; i < type.length; i++) {
     const id = type[i]!
-    let right = left.edgesSet[id] ?? null
-    if (right === null) {
+    let right = left.edgesSet[id]
+    if (right === undefined) {
       const type = addToType(left.type, id)
       right = findArchetype(world, type)
       let connect = false
-      if (right === null) {
+      if (right === undefined) {
         right = makeArchetype(world, type)
         emit.push(right)
         connect = true

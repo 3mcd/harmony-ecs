@@ -1,4 +1,4 @@
-import { ArchetypeData, Data } from "./archetype"
+import { ArchetypeRow, Data } from "./archetype"
 import { invariant } from "./debug"
 import { deleteEntity, Entity, makeEntity, set, unset } from "./entity"
 import { SchemaId } from "./model"
@@ -6,7 +6,7 @@ import { Type } from "./type"
 import { World } from "./world"
 
 type SetPayload = Data<SchemaId> | undefined
-type MakePayload<$Type extends Type = Type> = [layout: $Type, data?: ArchetypeData<$Type>]
+type MakePayload<$Type extends Type = Type> = [layout: $Type, data?: ArchetypeRow<$Type>]
 
 export type EntityManager = {
   setEntities: Entity[]
@@ -35,7 +35,7 @@ export function makeEntityManager(): EntityManager {
 export function deferMakeEntity<$Type extends Type>(
   manager: EntityManager,
   layout: $Type,
-  data?: ArchetypeData<$Type>,
+  data?: ArchetypeRow<$Type>,
 ) {
   manager.makeData.push([layout, data])
 }

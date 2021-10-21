@@ -1,5 +1,5 @@
 import {
-  ArchetypeData,
+  ArchetypeRow,
   BinaryData,
   Data,
   insertIntoArchetype,
@@ -33,7 +33,7 @@ import {
 
 export type Entity = number
 
-function initializeBinaryShape<$Shape extends Shape<BinarySchema>>(
+function expressBinaryShape<$Shape extends Shape<BinarySchema>>(
   shape: $Shape,
 ): BinaryData<$Shape> {
   if (isFormat(shape)) {
@@ -46,7 +46,7 @@ function initializeBinaryShape<$Shape extends Shape<BinarySchema>>(
   return object as BinaryData<$Shape>
 }
 
-function initializeNativeShape<$Shape extends Shape<NativeSchema>>(
+function expressNativeShape<$Shape extends Shape<NativeSchema>>(
   shape: $Shape,
 ): NativeData<$Shape> {
   if (isFormat(shape)) {
@@ -56,30 +56,30 @@ function initializeNativeShape<$Shape extends Shape<NativeSchema>>(
   for (const key in shape) {
     object[key] = isFormat(shape)
       ? 0
-      : initializeNativeShape(shape[key] as unknown as Shape<NativeSchema>)
+      : expressNativeShape(shape[key] as unknown as Shape<NativeSchema>)
   }
   return object as NativeData<$Shape>
 }
 
-function initializeSchema<$Schema extends Schema>(schema: $Schema) {
+function expressSchema<$Schema extends Schema>(schema: $Schema) {
   return isBinarySchema(schema)
-    ? initializeBinaryShape(schema.shape)
-    : initializeNativeShape(schema.shape)
+    ? expressBinaryShape(schema.shape)
+    : expressNativeShape(schema.shape)
 }
 
 function initializeType<$Type extends Type>(
   world: World,
   type: $Type,
-): ArchetypeData<$Type> {
+): ArchetypeRow<$Type> {
   return type.map(id =>
-    initializeSchema(findSchemaById(world, id)),
-  ) as unknown as ArchetypeData<$Type>
+    expressSchema(findSchemaById(world, id)),
+  ) as unknown as ArchetypeRow<$Type>
 }
 
 export function makeEntity<$Type extends Type>(
   world: World,
   layout: $Type,
-  data: ArchetypeData<$Type> = initializeType(world, layout),
+  data: ArchetypeRow<$Type> = initializeType(world, layout),
 ) {
   const type = normalizeType(layout)
   const entity = reserveEntity(world)
@@ -103,7 +103,7 @@ export function set<$SchemaId extends SchemaId>(
   data?: Data<$SchemaId>,
 ) {
   const schema = findSchemaById(world, schemaId)
-  const final = data ?? (initializeSchema(schema) as Data<$SchemaId>)
+  const final = data ?? (expressSchema(schema) as Data<$SchemaId>)
   const prev = tryGetEntityArchetype(world, entity)
   if (prev === undefined) {
     const identity = findOrMakeArchetype(world, [schemaId])

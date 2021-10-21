@@ -98,7 +98,7 @@ export type Archetype<$Type extends Type = Type> = {
   type: $Type
 }
 
-export type ArchetypeData<$Type extends Type> = {
+export type ArchetypeRow<$Type extends Type> = {
   [K in keyof $Type]: $Type[K] extends SchemaId ? Data<$Type[K]> : never
 }
 
@@ -191,7 +191,7 @@ export function makeArchetype<$Type extends Type>(
 export function insertIntoArchetype<$Type extends Type>(
   archetype: Archetype,
   entity: Entity,
-  data: ArchetypeData<$Type>,
+  data: ArchetypeRow<$Type>,
 ) {
   const index = archetype.entities.length
   for (let i = 0; i < archetype.type.length; i++) {
