@@ -1,5 +1,5 @@
 import { Entity } from "./entity"
-import { internal$harmonyFormat } from "./internal"
+import { internal$format } from "./symbols"
 import { Opaque, TypedArrayConstructor } from "./types"
 import { registerSchema, reserveEntity, World } from "./world"
 
@@ -21,7 +21,7 @@ export type Format = {
 
 export enum SchemaKind {
   BinaryScalar,
-  BinaryObject,
+  BinaryStruct,
   NativeScalar,
   NativeObject,
 }
@@ -32,11 +32,11 @@ export type BinaryScalarSchema<$Shape extends Format = Format> = {
   shape: $Shape
 }
 
-export type BinaryObjectSchema<
+export type BinaryStructSchema<
   $Shape extends { [key: string]: Format } = { [key: string]: Format },
 > = {
   id: number
-  kind: SchemaKind.BinaryObject
+  kind: SchemaKind.BinaryStruct
   shape: $Shape
 }
 
@@ -54,7 +54,7 @@ export type NativeObjectSchema<$Shape extends NativeObjectShape = NativeObjectSh
   shape: $Shape
 }
 
-export type BinarySchema = BinaryScalarSchema | BinaryObjectSchema
+export type BinarySchema = BinaryScalarSchema | BinaryStructSchema
 export type NativeSchema = NativeScalarSchema | NativeObjectSchema
 export type Schema = BinarySchema | NativeSchema
 export type Shape<$Type extends { shape: unknown }> = $Type["shape"]
@@ -65,7 +65,7 @@ function makeFormat<$Kind extends FormatKind, $Binary extends TypedArrayConstruc
   binary: $Binary,
 ) {
   return {
-    [internal$harmonyFormat]: true,
+    [internal$format]: true,
     kind,
     binary,
   } as { kind: $Kind; binary: $Binary }
@@ -93,8 +93,8 @@ export const formats = {
 type DeriveBinarySchema<$Shape extends Shape<BinarySchema>> =
   $Shape extends Shape<BinaryScalarSchema>
     ? SchemaId<BinaryScalarSchema<$Shape>>
-    : $Shape extends Shape<BinaryObjectSchema>
-    ? SchemaId<BinaryObjectSchema<$Shape>>
+    : $Shape extends Shape<BinaryStructSchema>
+    ? SchemaId<BinaryStructSchema<$Shape>>
     : never
 
 type DeriveNativeSchema<$Shape extends Shape<NativeSchema>> =
@@ -105,12 +105,12 @@ type DeriveNativeSchema<$Shape extends Shape<NativeSchema>> =
     : never
 
 export function isFormat(object: object): object is Format {
-  return internal$harmonyFormat in object
+  return internal$format in object
 }
 
 export function isBinarySchema(schema: Schema): schema is BinarySchema {
   return (
-    schema.kind === SchemaKind.BinaryScalar || schema.kind === SchemaKind.BinaryObject
+    schema.kind === SchemaKind.BinaryScalar || schema.kind === SchemaKind.BinaryStruct
   )
 }
 
@@ -123,14 +123,14 @@ export function isNativeSchema(schema: Schema): schema is NativeSchema {
 export function makeBinarySchema<$Shape extends Shape<BinarySchema>>(
   world: World,
   shape: $Shape,
-  schemaId?: number,
+  reserve?: number,
 ): DeriveBinarySchema<$Shape> {
-  const id = reserveEntity(world, schemaId)
+  const id = reserveEntity(world, reserve)
   let schema: BinarySchema
   if (isFormat(shape)) {
     schema = { id, kind: SchemaKind.BinaryScalar, shape }
   } else {
-    schema = { id, kind: SchemaKind.BinaryObject, shape }
+    schema = { id, kind: SchemaKind.BinaryStruct, shape }
   }
   registerSchema(world, id, schema)
   return id as DeriveBinarySchema<$Shape>
@@ -138,9 +138,9 @@ export function makeBinarySchema<$Shape extends Shape<BinarySchema>>(
 export function makeSchema<$Shape extends Shape<NativeSchema>>(
   world: World,
   shape: $Shape,
-  schemaId?: number,
+  reserve?: number,
 ): DeriveNativeSchema<$Shape> {
-  const id = reserveEntity(world, schemaId)
+  const id = reserveEntity(world, reserve)
   let schema: NativeSchema
   if (isFormat(shape)) {
     schema = { id, kind: SchemaKind.NativeScalar, shape }

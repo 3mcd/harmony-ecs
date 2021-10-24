@@ -1,10 +1,10 @@
-import { Archetype, ArchetypeRow } from "./archetype"
+import { ArchetypeRow } from "./archetype"
 import { invariant } from "./debug"
-import * as Entity from "./entity"
+import { Entity } from "./entity"
 import { SchemaId } from "./model"
 import * as SparseMap from "./sparse_map"
 import { Type } from "./type"
-import * as World from "./world"
+import { World } from "./world"
 
 // A tombstone describes a remove operation of either an entity or a
 // component.
@@ -19,9 +19,9 @@ type EntityDelta =
   // the case a component was removed.
   | SparseMap.SparseMap<typeof $tombstone | unknown, SchemaId>
 
-type Cache = SparseMap.SparseMap<EntityDelta, Entity.Entity>
+type Cache = SparseMap.SparseMap<EntityDelta, Entity>
 
-function ensureEntityDelta(cache: Cache, entity: Entity.Entity) {
+function ensureEntityDelta(cache: Cache, entity: Entity) {
   let delta = SparseMap.get(cache, entity)
   if (delta === undefined) {
     delta = SparseMap.make()
@@ -32,35 +32,35 @@ function ensureEntityDelta(cache: Cache, entity: Entity.Entity) {
 
 export function set<$Type extends Type>(
   cache: Cache,
-  entity: Entity.Entity,
+  entity: Entity,
   type: Type,
   data: ArchetypeRow<$Type>,
 ) {
   const delta = ensureEntityDelta(cache, entity)
   if (delta === $tombstone) return
   for (let i = 0; i < type.length; i++) {
-    const schemaId = type[i]
-    invariant(schemaId !== undefined)
-    SparseMap.set(delta, schemaId, data[i])
+    const id = type[i]
+    invariant(id !== undefined)
+    SparseMap.set(delta, id, data[i])
   }
 }
 
-export function unset(cache: Cache, entity: Entity.Entity, type: Type) {
+export function unset(cache: Cache, entity: Entity, type: Type) {
   const delta = ensureEntityDelta(cache, entity)
   if (delta === $tombstone) return
   for (let i = 0; i < type.length; i++) {
-    const schemaId = type[i]
-    invariant(schemaId !== undefined)
-    SparseMap.set(delta, schemaId, $tombstone)
+    const id = type[i]
+    invariant(id !== undefined)
+    SparseMap.set(delta, id, $tombstone)
   }
 }
 
-export function deleteEntity(cache: Cache, entity: Entity.Entity) {
+export function deleteEntity(cache: Cache, entity: Entity) {
   SparseMap.set(cache, entity, $tombstone)
 }
 
 export function make(): Cache {
-  return SparseMap.make<EntityDelta, Entity.Entity>()
+  return SparseMap.make<EntityDelta, Entity>()
 }
 
-export function apply(cache: Cache, world: World.World) {}
+export function apply(cache: Cache, world: World) {}

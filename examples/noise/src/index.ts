@@ -80,7 +80,7 @@ canvas.addEventListener("mousemove", event => {
     const [e, [p]] = noise[i]!
     for (let j = 0; j < e.length; j++) {
       if (p.x[j] === x && p.y[j] === y) {
-        set(world, e[j]!, Fixed, buf32[y * SIZE + x]! | (100 << 16) | (50 << 8))
+        set(world, e[j]!, [Fixed], [buf32[y * SIZE + x]! | (100 << 16) | (50 << 8)])
         break
       }
     }
