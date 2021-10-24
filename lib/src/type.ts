@@ -8,20 +8,42 @@ export function addToType(type: Type, add: SchemaId): Type {
   const next: number[] = []
   let added = false
   for (let i = 0; i < type.length; i++) {
-    const e = type[i]
-    invariant(e !== undefined)
-    if (e >= add && !added) {
-      if (e !== add) {
+    const id = type[i]
+    invariant(id !== undefined)
+    if (id >= add && !added) {
+      if (id !== add) {
         next.push(add)
       }
       added = true
     }
-    next.push(e)
+    next.push(id)
   }
   if (!added) {
     next.push(add)
   }
   return next as unknown as Type
+}
+
+export function and(a: Type, b: Type): Type {
+  invariantTypeNormalized(a)
+  let next = a.slice() as Type
+  for (let i = 0; i < b.length; i++) {
+    const id = b[i]
+    invariant(id !== undefined)
+    next = addToType(next, id)
+  }
+  return next
+}
+
+export function xor(a: Type, b: Type): Type {
+  invariantTypeNormalized(a)
+  let next = a.slice() as Type
+  for (let i = 0; i < b.length; i++) {
+    const id = b[i]
+    invariant(id !== undefined)
+    next = removeFromType(next, id)
+  }
+  return next
 }
 
 export function removeFromType(type: Type, remove: SchemaId): Type {
