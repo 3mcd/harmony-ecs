@@ -1,6 +1,6 @@
 import * as Harmony from "../../../lib/src"
 import { makeBinarySchema, makeEntity, makeWorld, World } from "../../../lib/src"
-import { Archetype } from "../../../lib/src/archetype"
+import { Table } from "../../../lib/src/archetype"
 import { makePerfOnce } from "../perf"
 
 function makeFixture() {
@@ -54,16 +54,16 @@ for (let i = 0; i < 10; i++) {
 
 const avgTime = results.reduce((a, x) => a + x, 0) / 100
 
-function getUniqueArchetypes(archetype: Archetype, visited = new Set<Archetype>()) {
+function getUniqueArchetypes(archetype: Table, visited = new Set<Table>()) {
   visited.add(archetype)
   archetype.edgesSet.forEach(a => getUniqueArchetypes(a, visited))
   return visited
 }
 
 console.log(
-  `${
-    getUniqueArchetypes(world!.archetypeRoot).size
-  } archetype insert took ${avgTime.toFixed(2)}ms`,
+  `${getUniqueArchetypes(world!.rootTable).size} archetype insert took ${avgTime.toFixed(
+    2,
+  )}ms`,
 )
 
 export const run = makePerfOnce(() => {})

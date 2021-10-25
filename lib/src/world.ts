@@ -1,34 +1,22 @@
-import {
-  Archetype,
-  ArchetypeRow,
-  insertIntoArchetype,
-  makeRootArchetype,
-  moveEntity,
-  removeFromArchetype,
-} from "./archetype"
-import { findOrMakeArchetype } from "./archetype_graph"
-import {
-  ComponentSet,
-  ComponentSetInit,
-  expressType,
-  makeComponentSet,
-} from "./component"
-import { invariant } from "./debug"
-import { Entity } from "./entity"
-import { Schema } from "./model"
-import { and, normalizeType, Type, xor } from "./type"
+import * as Archetype from "./archetype"
+import * as Graph from "./archetype_graph"
+import * as Component from "./component"
+import * as Debug from "./debug"
+import * as Entity from "./entity"
+import * as Model from "./model"
+import * as Type from "./type"
 
 export type World = {
-  archetypeRoot: Archetype
+  rootTable: Archetype.Table
   entityHead: number
-  entityIndex: (Archetype | undefined)[]
-  schemaIndex: Schema[]
+  entityIndex: (Archetype.Table | undefined)[]
+  schemaIndex: Model.Schema[]
   size: number
 }
 
-export function makeWorld(size: number): World {
+export function make(size: number): World {
   return {
-    archetypeRoot: makeRootArchetype(),
+    rootTable: Archetype.makeRoot(),
     entityHead: 0,
     entityIndex: [],
     schemaIndex: [],
@@ -36,32 +24,36 @@ export function makeWorld(size: number): World {
   }
 }
 
-export function registerSchema(world: World, id: Entity, schema: Schema) {
+export function registerSchema(world: World, id: Entity.Entity, schema: Model.Schema) {
   world.schemaIndex[id] = schema
 }
 
-export function findSchemaById(world: World, id: Entity) {
+export function findSchemaById(world: World, id: Entity.Entity) {
   const schema = world.schemaIndex[id]
-  invariant(schema !== undefined)
+  Debug.invariant(schema !== undefined)
   return schema
 }
 
-export function getEntityLocation(world: World, entity: Entity) {
-  const archetype = world.entityIndex[entity]
-  invariant(archetype !== undefined)
-  return archetype
+export function getEntityTable(world: World, entity: Entity.Entity) {
+  const table = world.entityIndex[entity]
+  Debug.invariant(table !== undefined)
+  return table
 }
 
-export function tryGetEntityArchetype(world: World, entity: Entity) {
-  const archetype = world.entityIndex[entity]
-  return archetype
+export function tryGetEntityTable(world: World, entity: Entity.Entity) {
+  const table = world.entityIndex[entity]
+  return table
 }
 
-export function setEntityArchetype(world: World, entity: Entity, archetype: Archetype) {
-  world.entityIndex[entity] = archetype
+export function setEntityTable(
+  world: World,
+  entity: Entity.Entity,
+  table: Archetype.Table,
+) {
+  world.entityIndex[entity] = table
 }
 
-export function unsetEntityArchetype(world: World, entity: Entity) {
+export function unsetEntityArchetype(world: World, entity: Entity.Entity) {
   world.entityIndex[entity] = undefined
 }
 
@@ -74,62 +66,59 @@ export function reserveEntity(world: World, entity = world.entityHead) {
   return entity
 }
 
-function insertEntity(
-  world: World,
-  entity: Entity,
-  archetype: Archetype,
-  data: ComponentSet,
-) {
-  insertIntoArchetype(archetype, entity, data)
-  setEntityArchetype(world, entity, archetype)
-}
-
-export function deleteEntity(world: World, entity: Entity) {
-  const archetype = world.entityIndex[entity]
-  invariant(archetype !== undefined)
-  removeFromArchetype(archetype, entity)
+export function deleteEntity(world: World, entity: Entity.Entity) {
+  const table = world.entityIndex[entity]
+  Debug.invariant(table !== undefined)
+  Archetype.remove(table, entity)
   unsetEntityArchetype(world, entity)
 }
 
-export function set<$Type extends Type>(
+export function set<$Type extends Type.Type>(
   world: World,
-  entity: Entity,
+  entity: Entity.Entity,
   layout: $Type,
-  init: ComponentSetInit<$Type> = [] as unknown as ComponentSetInit<$Type>,
+  init: Component.ComponentSetInit<$Type> = [] as unknown as Component.ComponentSetInit<$Type>,
 ) {
-  const prev = tryGetEntityArchetype(world, entity)
-  const data = makeComponentSet(world, layout, init)
+  let next: Archetype.Table
+  const prev = tryGetEntityTable(world, entity)
+  const components = Component.makeComponentSet(world, layout, init)
   // Entity either doesn't exist, or was previously destroyed.
   if (prev === undefined) {
     // Insert the entity into an archetype defined by the provided layout.
-    const type = normalizeType(layout)
-    const next = findOrMakeArchetype(world, type)
-    insertEntity(world, entity, next, data)
+    const type = Type.normalize(layout)
+    next = Graph.findOrMake(world, type)
+    Archetype.insert(next, entity, components)
   } else {
     // Move the entity to an archetype that is the combination of the entity's
     // existing type and the provided layout.
-    const type = and(prev.type, layout)
-    const next = findOrMakeArchetype(world, type)
-    moveEntity(entity, prev, next, data)
+    const type = Type.and(prev.type, layout)
+    next = Graph.findOrMake(world, type)
+    if (prev === next) {
+      Archetype.write(entity, prev, components)
+    } else {
+      Archetype.move(entity, prev, next, components)
+    }
   }
+  setEntityTable(world, entity, next)
 }
 
-export function unset<$Type extends Type>(world: World, entity: Entity, layout: $Type) {
-  const prev = getEntityLocation(world, entity)
-  const type = xor(prev.type, layout)
-  const next = findOrMakeArchetype(world, type)
-  moveEntity(entity, prev, next)
+export function unset<$Type extends Type.Type>(
+  world: World,
+  entity: Entity.Entity,
+  layout: $Type,
+) {
+  const prev = getEntityTable(world, entity)
+  const type = Type.xor(prev.type, layout)
+  const next = Graph.findOrMake(world, type)
+  Archetype.move(entity, prev, next)
 }
 
-export function makeEntity<$Type extends Type>(
+export function makeEntity<$Type extends Type.Type>(
   world: World,
   layout: $Type = [] as unknown as $Type,
-  init: ArchetypeRow<$Type> = expressType(world, layout),
+  init: Archetype.Row<$Type> = Component.expressType(world, layout),
 ) {
-  const data = makeComponentSet(world, layout, init)
-  const type = normalizeType(layout)
   const entity = reserveEntity(world)
-  const archetype = findOrMakeArchetype(world, type)
-  insertEntity(world, entity, archetype, data)
+  set(world, entity, layout, init)
   return entity
 }

@@ -1,23 +1,27 @@
-import { findOrMakeArchetype } from "./archetype_graph"
-import { Entity } from "./entity"
-import { QueryFilter } from "./query"
-import { subscribe } from "./signal"
-import { normalizeType, Type } from "./type"
-import { World } from "./world"
+import * as Graph from "./archetype_graph"
+import * as Entity from "./entity"
+import * as Query from "./query"
+import * as Signal from "./signal"
+import * as Type from "./type"
+import * as World from "./world"
 
-export type Monitor = [enter: Entity[], exit: Entity[]]
+export type Monitor = [enter: Entity.Entity[], exit: Entity.Entity[]]
 
-export function make(world: World, layout: Type, ...filters: QueryFilter[]): Monitor {
+export function make(
+  world: World.World,
+  layout: Type.Type,
+  ...filters: Query.QueryFilter[]
+): Monitor {
   const monitor: Monitor = [[], []]
-  const type = normalizeType(layout)
-  const identity = findOrMakeArchetype(world, type)
+  const type = Type.normalize(layout)
+  const identity = Graph.findOrMake(world, type)
   const [enter, exit] = monitor
-  subscribe(identity.onEnter, function addInsertedEntities(entities) {
+  Signal.subscribe(identity.onEnter, function addInsertedEntities(entities) {
     for (let i = 0; i < entities.length; i++) {
       enter.push(entities[i]!)
     }
   })
-  subscribe(identity.onExit, function addRemovedEntities(entities) {
+  Signal.subscribe(identity.onExit, function addRemovedEntities(entities) {
     for (let i = 0; i < entities.length; i++) {
       exit.push(entities[i]!)
     }

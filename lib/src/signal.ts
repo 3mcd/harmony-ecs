@@ -1,9 +1,9 @@
-import { invariant } from "./debug"
+import * as Debug from "./debug"
 
 export type SignalSubscriber<T> = (t: T) => void
 export type Signal<T = void> = { subscribers: SignalSubscriber<T>[] }
 
-export function makeSignal<T>(): Signal<T> {
+export function make<T>(): Signal<T> {
   const subscribers: SignalSubscriber<T>[] = []
   return { subscribers }
 }
@@ -18,7 +18,7 @@ export function subscribe<T>(signal: Signal<T>, subscriber: SignalSubscriber<T>)
 export function dispatch<T>(signal: Signal<T>, t: T) {
   for (let i = signal.subscribers.length - 1; i >= 0; i--) {
     const subscriber = signal.subscribers[i]
-    invariant(subscriber !== undefined)
+    Debug.invariant(subscriber !== undefined)
     subscriber(t!)
   }
 }

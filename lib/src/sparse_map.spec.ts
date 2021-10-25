@@ -1,35 +1,35 @@
-import { get, make, set, remove, forEach } from "./sparse_map"
+import * as SparseMap from "./sparse_map"
 
 describe("sparse_map", () => {
   it("init", () => {
-    const smap = make([, , , "a"])
-    expect(get(smap, 3)).toBe("a")
+    const smap = SparseMap.make([, , , "a"])
+    expect(SparseMap.get(smap, 3)).toBe("a")
     expect(smap.size).toBe(1)
   })
   it("set", () => {
-    const smap = make()
-    set(smap, 99, "a")
-    set(smap, 42, "b")
-    expect(get(smap, 99)).toBe("a")
-    expect(get(smap, 42)).toBe("b")
+    const smap = SparseMap.make()
+    SparseMap.set(smap, 99, "a")
+    SparseMap.set(smap, 42, "b")
+    expect(SparseMap.get(smap, 99)).toBe("a")
+    expect(SparseMap.get(smap, 42)).toBe("b")
     expect(smap.size).toBe(2)
   })
   it("remove", () => {
-    const smap = make()
-    set(smap, 12, "c")
-    set(smap, 99, "a")
-    set(smap, 42, "b")
-    remove(smap, 42)
-    expect(get(smap, 42)).toBe(undefined)
-    expect(get(smap, 99)).toBe("a")
-    expect(get(smap, 12)).toBe("c")
+    const smap = SparseMap.make()
+    SparseMap.set(smap, 12, "c")
+    SparseMap.set(smap, 99, "a")
+    SparseMap.set(smap, 42, "b")
+    SparseMap.remove(smap, 42)
+    expect(SparseMap.get(smap, 42)).toBe(undefined)
+    expect(SparseMap.get(smap, 99)).toBe("a")
+    expect(SparseMap.get(smap, 12)).toBe("c")
     expect(smap.size).toBe(2)
   })
 })
 
 const arr: number[] = []
 const map = new Map()
-const smap = make()
+const smap = SparseMap.make()
 
 console.time("map insert")
 for (let i = 0; i < 2_000_000; i += 2) {
@@ -39,7 +39,7 @@ console.timeEnd("map insert")
 
 console.time("smap insert")
 for (let i = 0; i < 2_000_000; i += 2) {
-  set(smap, i, i)
+  SparseMap.set(smap, i, i)
 }
 console.timeEnd("smap insert")
 
@@ -57,7 +57,7 @@ console.timeEnd("map set")
 
 console.time("smap set")
 for (let i = 0; i < 2_000_000; i += 2) {
-  set(smap, i, 0)
+  SparseMap.set(smap, i, 0)
 }
 console.timeEnd("smap set")
 
@@ -69,7 +69,7 @@ console.timeEnd("map get")
 
 console.time("smap get")
 for (let i = 0; i < 2_000_000; i += 2) {
-  get(smap, i)
+  SparseMap.get(smap, i)
 }
 console.timeEnd("smap get")
 
@@ -81,7 +81,7 @@ console.timeEnd("map iter")
 
 console.time("smap iter")
 for (let i = 0; i < 10; i += 2) {
-  forEach(smap, (value, key) => {})
+  SparseMap.forEach(smap, (value, key) => {})
 }
 console.timeEnd("smap iter")
 
@@ -99,6 +99,6 @@ console.timeEnd("map delete")
 
 console.time("smap delete")
 for (let i = 0; i < 2_000_000; i += 2) {
-  remove(smap, i)
+  SparseMap.remove(smap, i)
 }
 console.timeEnd("smap delete")

@@ -1,75 +1,67 @@
-import { ArchetypeRow, BinaryData, Data, NativeData } from "./archetype"
-import { invariant } from "./debug"
-import {
-  BinarySchema,
-  isBinarySchema,
-  isFormat,
-  NativeSchema,
-  Schema,
-  SchemaId,
-  Shape,
-} from "./model"
-import { Type } from "./type"
-import { findSchemaById, World } from "./world"
+import * as Archetype from "./archetype"
+import * as Debug from "./debug"
+import * as Model from "./model"
+import * as Type from "./type"
+import * as World from "./world"
 
-export type ComponentSet = Data<SchemaId>[]
-export type ComponentSetInit<$Type extends Type = Type> = {
-  [K in keyof $Type]?: ArchetypeRow<$Type>[K]
+export type ComponentSet = Archetype.Data<Model.SchemaId>[]
+export type ComponentSetInit<$Type extends Type.Type = Type.Type> = {
+  [K in keyof $Type]?: Archetype.Row<$Type>[K]
 }
 
-export function expressBinaryShape<$Shape extends Shape<BinarySchema>>(
+export function expressBinaryShape<$Shape extends Model.Shape<Model.BinarySchema>>(
   shape: $Shape,
-): BinaryData<$Shape> {
-  if (isFormat(shape)) {
-    return 0 as BinaryData<$Shape>
+): Archetype.BinaryData<$Shape> {
+  if (Model.isFormat(shape)) {
+    return 0 as Archetype.BinaryData<$Shape>
   }
   const object: { [key: string]: unknown } = {}
   for (const key in shape) {
     object[key] = 0
   }
-  return object as BinaryData<$Shape>
+  return object as Archetype.BinaryData<$Shape>
 }
 
-export function expressNativeShape<$Shape extends Shape<NativeSchema>>(
+export function expressNativeShape<$Shape extends Model.Shape<Model.NativeSchema>>(
   shape: $Shape,
-): NativeData<$Shape> {
-  if (isFormat(shape)) {
-    return 0 as NativeData<$Shape>
+): Archetype.NativeData<$Shape> {
+  if (Model.isFormat(shape)) {
+    return 0 as Archetype.NativeData<$Shape>
   }
   const object: { [key: string]: unknown } = {}
   for (const key in shape) {
-    object[key] = isFormat(shape)
+    object[key] = Model.isFormat(shape)
       ? 0
-      : expressNativeShape(shape[key] as unknown as Shape<NativeSchema>)
+      : expressNativeShape(shape[key] as unknown as Model.Shape<Model.NativeSchema>)
   }
-  return object as NativeData<$Shape>
+  return object as Archetype.NativeData<$Shape>
 }
 
-export function expressSchema<$Schema extends Schema>(schema: $Schema) {
-  return isBinarySchema(schema)
+export function expressSchema<$Schema extends Model.Schema>(schema: $Schema) {
+  return Model.isBinarySchema(schema)
     ? expressBinaryShape(schema.shape)
     : expressNativeShape(schema.shape)
 }
 
-export function expressType<$Type extends Type>(
-  world: World,
+export function expressType<$Type extends Type.Type>(
+  world: World.World,
   type: $Type,
-): ArchetypeRow<$Type> {
+): Archetype.Row<$Type> {
   return type.map(id =>
-    expressSchema(findSchemaById(world, id)),
-  ) as unknown as ArchetypeRow<$Type>
+    expressSchema(World.findSchemaById(world, id)),
+  ) as unknown as Archetype.Row<$Type>
 }
 
 export function makeComponentSet(
-  world: World,
-  type: Type,
+  world: World.World,
+  type: Type.Type,
   data: ComponentSetInit,
 ): ComponentSet {
   const set: ComponentSet = []
   for (let i = 0; i < type.length; i++) {
     const id = type[i]
-    invariant(id !== undefined)
-    set[id] = data[i] ?? expressSchema(findSchemaById(world, id))
+    Debug.invariant(id !== undefined)
+    set[id] = data[i] ?? expressSchema(World.findSchemaById(world, id))
   }
   return set
 }

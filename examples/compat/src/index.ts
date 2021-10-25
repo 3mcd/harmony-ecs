@@ -102,7 +102,7 @@ function spawn() {
         [Body, Mesh],
         createBox(new Cannon.Vec3(random(25), 20, random(25))),
       )
-      if (i % 2 === 0) set(world, entity, Bounce, { latestBounceTime: 0 })
+      if (i % 2 === 0) set(world, entity, [Bounce], [{ latestBounceTime: 0 }])
     }
     spawnInit = false
   }

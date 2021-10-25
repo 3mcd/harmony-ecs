@@ -6,6 +6,7 @@ import {
   makeWorld,
   not,
   set,
+  unset,
 } from "../../../lib/src"
 
 const SIZE = 500

@@ -1,63 +1,63 @@
-import { Archetype, ArchetypeColumn } from "./archetype"
-import { findOrMakeArchetype, traverseRight } from "./archetype_graph"
-import { invariant } from "./debug"
-import { Entity } from "./entity"
-import { SchemaId } from "./model"
-import { subscribe } from "./signal"
-import { invariantTypeNormalized, isSupersetOf, normalizeType, Type } from "./type"
-import { World } from "./world"
+import * as Archetype from "./archetype"
+import * as Graph from "./archetype_graph"
+import * as Debug from "./debug"
+import * as Entity from "./entity"
+import * as Model from "./model"
+import * as Signal from "./signal"
+import * as Type from "./type"
+import * as World from "./world"
 
-type QueryRecordData<$Type extends Type> = {
-  [K in keyof $Type]: $Type[K] extends SchemaId
-    ? ArchetypeColumn<$Type[K]>["data"]
+type QueryRecordData<$Type extends Type.Type> = {
+  [K in keyof $Type]: $Type[K] extends Model.SchemaId
+    ? Archetype.Column<$Type[K]>["data"]
     : never
 }
 
-export type QueryRecord<$Type extends Type> = [
-  entities: ReadonlyArray<Entity>,
+export type QueryRecord<$Type extends Type.Type> = [
+  entities: ReadonlyArray<Entity.Entity>,
   data: {
-    [K in keyof $Type]: $Type[K] extends SchemaId
-      ? ArchetypeColumn<$Type[K]>["data"]
+    [K in keyof $Type]: $Type[K] extends Model.SchemaId
+      ? Archetype.Column<$Type[K]>["data"]
       : never
   },
 ]
-export type Query<$Type extends Type = Type> = QueryRecord<$Type>[]
-export type QueryFilter = (type: Type, archetype: Archetype) => boolean
+export type Query<$Type extends Type.Type = Type.Type> = QueryRecord<$Type>[]
+export type QueryFilter = (type: Type.Type, table: Archetype.Table) => boolean
 
-function bindArchetype<$Type extends Type>(
+function bindArchetype<$Type extends Type.Type>(
   records: Query<$Type>,
   layout: $Type,
-  archetype: Archetype,
+  table: Archetype.Table,
 ) {
   const columns = layout.map(function findColumnDataById(id) {
-    const columnIndex = archetype.layout[id]
-    invariant(columnIndex !== undefined)
-    const column = archetype.table[columnIndex]
-    invariant(column !== undefined)
+    const columnIndex = table.layout[id]
+    Debug.invariant(columnIndex !== undefined)
+    const column = table.store[columnIndex]
+    Debug.invariant(column !== undefined)
     return column.data
   })
-  records.push([archetype.entities, columns as unknown as QueryRecordData<$Type>])
+  records.push([table.entities, columns as unknown as QueryRecordData<$Type>])
 }
 
-function maybeBindArchetype<$Type extends Type>(
+function maybeBindArchetype<$Type extends Type.Type>(
   records: Query<$Type>,
-  type: Type,
+  type: Type.Type,
   layout: $Type,
-  archetype: Archetype,
+  table: Archetype.Table,
   filters: QueryFilter[],
 ) {
   if (
     filters.every(function testPredicate(predicate) {
-      return predicate(type, archetype)
+      return predicate(type, table)
     })
   ) {
-    if (archetype.real) {
-      bindArchetype(records, layout, archetype)
+    if (table.real) {
+      bindArchetype(records, layout, table)
     } else {
-      const unsubscribe = subscribe(
-        archetype.onRealize,
+      const unsubscribe = Signal.subscribe(
+        table.onRealize,
         function bindArchetypeAndUnsubscribe() {
-          bindArchetype(records, layout, archetype)
+          bindArchetype(records, layout, table)
           unsubscribe()
         },
       )
@@ -65,52 +65,51 @@ function maybeBindArchetype<$Type extends Type>(
   }
 }
 
-function makeStaticQueryInternal<$Type extends Type>(
-  type: Type,
+function makeStaticQueryInternal<$Type extends Type.Type>(
+  type: Type.Type,
   layout: $Type,
-  identity: Archetype,
+  table: Archetype.Table,
   filters: QueryFilter[],
 ): Query<$Type> {
   const query: Query<$Type> = []
-  invariantTypeNormalized(type)
-  // insert identity archetype
-  maybeBindArchetype(query, type, layout, identity, filters)
-  // since the archetype graph can contain cycles, we maintain a set of the
-  // archetypes we've visited. this strategy seems naive and can likely be
-  // further optimized
-  traverseRight(identity, function maybeBindNextArchetype(archetype) {
+  Type.invariantNormalized(type)
+  maybeBindArchetype(query, type, layout, table, filters)
+  Graph.traverseRight(table, function maybeBindNextArchetype(archetype) {
     maybeBindArchetype(query, type, layout, archetype, filters)
   })
   return query
 }
 
-export function makeStaticQuery<$Type extends Type>(
-  world: World,
+export function makeStaticQuery<$Type extends Type.Type>(
+  world: World.World,
   layout: $Type,
   ...filters: QueryFilter[]
 ): Query<$Type> {
-  const type = normalizeType(layout)
-  const identity = findOrMakeArchetype(world, type)
+  const type = Type.normalize(layout)
+  const identity = Graph.findOrMake(world, type)
   return makeStaticQueryInternal(type, layout, identity, filters)
 }
 
-export function makeQuery<$Type extends Type>(
-  world: World,
+export function makeQuery<$Type extends Type.Type>(
+  world: World.World,
   layout: $Type,
   ...filters: QueryFilter[]
 ): Query<$Type> {
-  const type = normalizeType(layout)
-  const identity = findOrMakeArchetype(world, type)
+  const type = Type.normalize(layout)
+  const identity = Graph.findOrMake(world, type)
   const query = makeStaticQueryInternal(type, layout, identity, filters)
-  subscribe(identity.onArchetypeInsert, function maybeBindInsertedArchetype(archetype) {
-    maybeBindArchetype(query, type, layout, archetype, filters)
-  })
+  Signal.subscribe(
+    identity.onTableInsert,
+    function maybeBindInsertedArchetype(archetype) {
+      maybeBindArchetype(query, type, layout, archetype, filters)
+    },
+  )
   return query
 }
 
-export function not(layout: Type) {
-  const type = normalizeType(layout)
-  return function isArchetypeNotSupersetOfType(_: Type, archetype: Archetype) {
-    return !isSupersetOf(archetype.type, type)
+export function not(layout: Type.Type) {
+  const type = Type.normalize(layout)
+  return function isArchetypeNotSupersetOfType(_: Type.Type, archetype: Archetype.Table) {
+    return !Type.isSupersetOf(archetype.type, type)
   }
 }

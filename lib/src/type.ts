@@ -3,8 +3,8 @@ import { SchemaId } from "./model"
 
 export type Type = ReadonlyArray<SchemaId>
 
-export function addToType(type: Type, add: SchemaId): Type {
-  invariantTypeNormalized(type)
+export function add(type: Type, add: SchemaId): Type {
+  invariantNormalized(type)
   const next: number[] = []
   let added = false
   for (let i = 0; i < type.length; i++) {
@@ -25,29 +25,29 @@ export function addToType(type: Type, add: SchemaId): Type {
 }
 
 export function and(a: Type, b: Type): Type {
-  invariantTypeNormalized(a)
+  invariantNormalized(a)
   let next = a.slice() as Type
   for (let i = 0; i < b.length; i++) {
     const id = b[i]
     invariant(id !== undefined)
-    next = addToType(next, id)
+    next = add(next, id)
   }
   return next
 }
 
 export function xor(a: Type, b: Type): Type {
-  invariantTypeNormalized(a)
+  invariantNormalized(a)
   let next = a.slice() as Type
   for (let i = 0; i < b.length; i++) {
     const id = b[i]
     invariant(id !== undefined)
-    next = removeFromType(next, id)
+    next = remove(next, id)
   }
   return next
 }
 
-export function removeFromType(type: Type, remove: SchemaId): Type {
-  invariantTypeNormalized(type)
+export function remove(type: Type, remove: SchemaId): Type {
+  invariantNormalized(type)
   const next: number[] = []
   for (let i = 0; i < type.length; i++) {
     const e = type[i]
@@ -59,11 +59,11 @@ export function removeFromType(type: Type, remove: SchemaId): Type {
   return next as unknown as Type
 }
 
-export function normalizeType(type: Type) {
+export function normalize(type: Type) {
   return Object.freeze(type.slice().sort((a, b) => a - b))
 }
 
-export function invariantTypeNormalized(type: Type) {
+export function invariantNormalized(type: Type) {
   for (let i = 0; i < type.length - 1; i++) {
     const a = type[i]
     const b = type[i + 1]
@@ -86,8 +86,8 @@ export function isEqual(outer: Type, inner: Type) {
 }
 
 export function isSupersetOf(outer: Type, inner: Type) {
-  invariantTypeNormalized(outer)
-  invariantTypeNormalized(inner)
+  invariantNormalized(outer)
+  invariantNormalized(inner)
   let o = 0
   let i = 0
   if (outer.length <= inner.length) {
@@ -117,8 +117,8 @@ export function invariantIsSupersetOf(outer: Type, inner: Type) {
 }
 
 export function maybeSupersetOf(outer: Type, inner: Type) {
-  invariantTypeNormalized(outer)
-  invariantTypeNormalized(inner)
+  invariantNormalized(outer)
+  invariantNormalized(inner)
   let o = 0
   let i = 0
   if (outer.length === 0) {

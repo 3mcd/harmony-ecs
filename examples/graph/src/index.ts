@@ -1,4 +1,4 @@
-import { Archetype } from "../../../lib/src/archetype"
+import { Table } from "../../../lib/src/archetype"
 import { Edge, Network, Node } from "vis-network"
 import { DataSet } from "vis-data"
 import { makeEntity, makeSchema, makeWorld, Schema } from "../../../lib/src"
@@ -36,15 +36,15 @@ function maybeMakeEdge(a: Type, b: Type) {
   edges.add({ id, from, to })
 }
 
-function onArchetypeInsert(archetype: Archetype) {
-  const id = makeTypeId(archetype.type)
-  nodes.add({ id: id, label: `(${id})`, count: 0, level: archetype.type.length })
-  archetype.edgesSet.forEach(({ type }) => maybeMakeEdge(archetype.type, type))
-  archetype.edgesUnset.forEach(({ type }) => maybeMakeEdge(archetype.type, type))
+function onTableInsert(table: Table) {
+  const id = makeTypeId(table.type)
+  nodes.add({ id: id, label: `(${id})`, count: 0, level: table.type.length })
+  table.edgesSet.forEach(({ type }) => maybeMakeEdge(table.type, type))
+  table.edgesUnset.forEach(({ type }) => maybeMakeEdge(table.type, type))
 }
 
-subscribe(world.archetypeRoot.onArchetypeInsert, onArchetypeInsert)
-onArchetypeInsert(world.archetypeRoot)
+subscribe(world.rootTable.onTableInsert, onTableInsert)
+onTableInsert(world.rootTable)
 
 let max = 0
 

@@ -1,7 +1,7 @@
-import { Entity } from "./entity"
-import { internal$format } from "./symbols"
-import { Opaque, TypedArrayConstructor } from "./types"
-import { registerSchema, reserveEntity, World } from "./world"
+import * as Entity from "./entity"
+import * as Symbols from "./symbols"
+import * as Types from "./types"
+import * as World from "./world"
 
 export enum FormatKind {
   Uint8,
@@ -14,10 +14,10 @@ export enum FormatKind {
   Float64,
 }
 
-export type Format = {
-  kind: FormatKind
-  binary: TypedArrayConstructor
-}
+export type Format<
+  $Kind extends FormatKind = FormatKind,
+  $Binary extends Types.TypedArrayConstructor = Types.TypedArrayConstructor,
+> = { kind: $Kind; binary: $Binary }
 
 export enum SchemaKind {
   BinaryScalar,
@@ -58,14 +58,17 @@ export type BinarySchema = BinaryScalarSchema | BinaryStructSchema
 export type NativeSchema = NativeScalarSchema | NativeObjectSchema
 export type Schema = BinarySchema | NativeSchema
 export type Shape<$Type extends { shape: unknown }> = $Type["shape"]
-export type SchemaId<$Schema extends Schema = Schema> = Opaque<Entity, $Schema>
+export type SchemaId<$Schema extends Schema = Schema> = Types.Opaque<
+  Entity.Entity,
+  $Schema
+>
 
-function makeFormat<$Kind extends FormatKind, $Binary extends TypedArrayConstructor>(
-  kind: $Kind,
-  binary: $Binary,
-) {
+function makeFormat<
+  $Kind extends FormatKind,
+  $Binary extends Types.TypedArrayConstructor,
+>(kind: $Kind, binary: $Binary): Format<$Kind, $Binary> {
   return {
-    [internal$format]: true,
+    [Symbols.internal$format]: true,
     kind,
     binary,
   } as { kind: $Kind; binary: $Binary }
@@ -105,7 +108,7 @@ type DeriveNativeSchema<$Shape extends Shape<NativeSchema>> =
     : never
 
 export function isFormat(object: object): object is Format {
-  return internal$format in object
+  return Symbols.internal$format in object
 }
 
 export function isBinarySchema(schema: Schema): schema is BinarySchema {
@@ -121,32 +124,32 @@ export function isNativeSchema(schema: Schema): schema is NativeSchema {
 }
 
 export function makeBinarySchema<$Shape extends Shape<BinarySchema>>(
-  world: World,
+  world: World.World,
   shape: $Shape,
   reserve?: number,
 ): DeriveBinarySchema<$Shape> {
-  const id = reserveEntity(world, reserve)
+  const id = World.reserveEntity(world, reserve)
   let schema: BinarySchema
   if (isFormat(shape)) {
     schema = { id, kind: SchemaKind.BinaryScalar, shape }
   } else {
     schema = { id, kind: SchemaKind.BinaryStruct, shape }
   }
-  registerSchema(world, id, schema)
+  World.registerSchema(world, id, schema)
   return id as DeriveBinarySchema<$Shape>
 }
 export function makeSchema<$Shape extends Shape<NativeSchema>>(
-  world: World,
+  world: World.World,
   shape: $Shape,
   reserve?: number,
 ): DeriveNativeSchema<$Shape> {
-  const id = reserveEntity(world, reserve)
+  const id = World.reserveEntity(world, reserve)
   let schema: NativeSchema
   if (isFormat(shape)) {
     schema = { id, kind: SchemaKind.NativeScalar, shape }
   } else {
     schema = { id, kind: SchemaKind.NativeObject, shape }
   }
-  registerSchema(world, id, schema)
+  World.registerSchema(world, id, schema)
   return id as DeriveNativeSchema<$Shape>
 }

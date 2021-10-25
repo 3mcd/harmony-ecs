@@ -1,4 +1,4 @@
-import { ArchetypeRow } from "./archetype"
+import { Row } from "./archetype"
 import { invariant } from "./debug"
 import { Entity } from "./entity"
 import { SchemaId } from "./model"
@@ -34,7 +34,7 @@ export function set<$Type extends Type>(
   cache: Cache,
   entity: Entity,
   type: Type,
-  data: ArchetypeRow<$Type>,
+  data: Row<$Type>,
 ) {
   const delta = ensureEntityDelta(cache, entity)
   if (delta === $tombstone) return
