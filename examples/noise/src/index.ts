@@ -1,37 +1,28 @@
-import {
-  formats,
-  makeBinarySchema,
-  makeEntity,
-  makeQuery,
-  makeWorld,
-  not,
-  set,
-  unset,
-} from "../../../lib/src"
+import { formats, Schema, Entity, Query, World } from "../../../lib/src"
 
 const SIZE = 500
 const COUNT = SIZE * SIZE
 const canvas = document.getElementById("game") as HTMLCanvasElement
-const world = makeWorld(COUNT)
+const world = World.make(COUNT)
 const context = canvas.getContext("2d")!
 const image = context.getImageData(0, 0, SIZE, SIZE)
 const buf = new ArrayBuffer(image.data.length)
 const buf8 = new Uint8ClampedArray(buf)
 const buf32 = new Uint32Array(buf)
 
-const Position = makeBinarySchema(world, { x: formats.uint32, y: formats.uint32 })
-const Fixed = makeBinarySchema(world, formats.uint32)
+const Position = Schema.makeBinary(world, { x: formats.uint32, y: formats.uint32 })
+const Fixed = Schema.makeBinary(world, formats.uint32)
 const Point = [Position] as const
 const PointFixed = [...Point, Fixed] as const
 
 for (let i = 0; i < SIZE; i++) {
   for (let j = 0; j < SIZE; j++) {
-    makeEntity(world, Point, [{ x: i, y: j }])
+    Entity.make(world, Point, [{ x: i, y: j }])
   }
 }
 
-const noise = makeQuery(world, Point, not([Fixed]))
-const fixed = makeQuery(world, PointFixed)
+const noise = Query.make(world, Point, Query.not([Fixed]))
+const fixed = Query.make(world, PointFixed)
 const rand: number[] = []
 
 let randomHead = 1e6 + 90_000
@@ -81,7 +72,12 @@ canvas.addEventListener("mousemove", event => {
     const [e, [p]] = noise[i]!
     for (let j = 0; j < e.length; j++) {
       if (p.x[j] === x && p.y[j] === y) {
-        set(world, e[j]!, [Fixed], [buf32[y * SIZE + x]! | (100 << 16) | (50 << 8)])
+        Entity.set(
+          world,
+          e[j]!,
+          [Fixed],
+          [buf32[y * SIZE + x]! | (100 << 16) | (50 << 8)],
+        )
         break
       }
     }

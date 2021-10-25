@@ -1,9 +1,11 @@
 export type { Data } from "./archetype"
-export type { Entity } from "./entity"
-export { formats, makeBinarySchema, makeSchema } from "./model"
-export type { BinarySchema, NativeSchema, Schema } from "./model"
-export { makeQuery, makeStaticQuery, not } from "./query"
-export type { Query } from "./query"
-export { make as makeSignal } from "./signal"
-export { deleteEntity, makeEntity, make as makeWorld, set, unset } from "./world"
-export type { World } from "./world"
+export * as Cache from "./cache"
+export * as Schema from "./model"
+export * as Query from "./query"
+export * as Signal from "./signal"
+export * as World from "./world"
+
+import * as EntityModule from "./entity"
+
+const { deleteEntity, ...EntityModuleWithoutDelete } = EntityModule
+export const Entity = { delete: deleteEntity, ...EntityModuleWithoutDelete }

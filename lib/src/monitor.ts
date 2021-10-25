@@ -5,7 +5,7 @@ import * as Signal from "./signal"
 import * as Type from "./type"
 import * as World from "./world"
 
-export type Monitor = [enter: Entity.Entity[], exit: Entity.Entity[]]
+export type Monitor = [enter: Entity.Id[], exit: Entity.Id[]]
 
 export function make(
   world: World.World,

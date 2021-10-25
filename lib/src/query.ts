@@ -14,7 +14,7 @@ type QueryRecordData<$Type extends Type.Type> = {
 }
 
 export type QueryRecord<$Type extends Type.Type> = [
-  entities: ReadonlyArray<Entity.Entity>,
+  entities: ReadonlyArray<Entity.Id>,
   data: {
     [K in keyof $Type]: $Type[K] extends Model.SchemaId
       ? Archetype.Column<$Type[K]>["data"]
@@ -80,7 +80,7 @@ function makeStaticQueryInternal<$Type extends Type.Type>(
   return query
 }
 
-export function makeStaticQuery<$Type extends Type.Type>(
+export function makeStatic<$Type extends Type.Type>(
   world: World.World,
   layout: $Type,
   ...filters: QueryFilter[]
@@ -90,7 +90,7 @@ export function makeStaticQuery<$Type extends Type.Type>(
   return makeStaticQueryInternal(type, layout, identity, filters)
 }
 
-export function makeQuery<$Type extends Type.Type>(
+export function make<$Type extends Type.Type>(
   world: World.World,
   layout: $Type,
   ...filters: QueryFilter[]

@@ -1,7 +1,7 @@
 import { Table } from "../../../lib/src/archetype"
 import { Edge, Network, Node } from "vis-network"
 import { DataSet } from "vis-data"
-import { makeEntity, makeSchema, makeWorld, Schema } from "../../../lib/src"
+import { Entity, Schema, World } from "../../../lib/src"
 import { Type } from "../../../lib/src/type"
 
 function getColor(value: number) {
@@ -17,12 +17,12 @@ const $type = document.getElementById("type") as HTMLInputElement
 const $network = document.getElementById("network")!
 const $insert = document.getElementById("insert")!
 
-const world = makeWorld(1_000_000)
+const world = World.make(1_000_000)
 const nodes = new DataSet([] as (Node & { count: number })[])
 const edges = new DataSet([] as Edge[])
 const schemas = Array(10)
   .fill(undefined)
-  .map(() => makeSchema(world, {}))
+  .map(() => Schema.make(world, {}))
 const edgeIds = new Set<string>()
 
 function maybeMakeEdge(a: Type, b: Type) {
@@ -53,7 +53,7 @@ function onInsertEntity() {
     .sort((a, b) => a - b)
     .map(id => schemas[id]!)
   const id = makeTypeId(type)
-  makeEntity(world, type)
+  Entity.make(world, type)
   const node = nodes.get(id)!
   const count = node.count + 1
   if (count > max) {

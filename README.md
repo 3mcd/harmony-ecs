@@ -27,22 +27,22 @@ This repo contains examples in the [`examples`](./examples) directory. You can r
 Below is a sample of Harmony's API, where a TypedArray `Velocity` component is used to update an object `Position` component:
 
 ```ts
-import * as Harmony from "./lib/dist"
+import { World, Schema, Entity, Query, formats } from "harmony-ecs"
 
 const Vector2 = {
-  x: Harmony.formats.float64,
-  y: Harmony.formats.float64,
+  x: formats.float64,
+  y: formats.float64,
 }
-const world = Harmony.makeWorld(1_000_000)
-const Position = Harmony.makeSchema(world, Vector2)
-const Velocity = Harmony.makeBinarySchema(world, Vector2)
+const world = World.make(1_000_000)
+const Position = Schema.make(world, Vector2)
+const Velocity = Schema.makeBinary(world, Vector2)
 const Kinetic = [Position, Velocity] as const
 
 for (let i = 0; i < 1_000_000; i++) {
-  Harmony.makeEntity(world, Kinetic)
+  Entity.make(world, Kinetic)
 }
 
-const kinetics = Harmony.makeQuery(world, Kinetic)
+const kinetics = Query.make(world, Kinetic)
 
 for (const [entities, [p, v]] of kinetics) {
   for (let i = 0; i < entities.length; i++) {
@@ -55,16 +55,16 @@ for (const [entities, [p, v]] of kinetics) {
 Harmony does not modify objects, making it highly compatible with third-party libraries. Take the following example where an entity is composed of a Three.js mesh, Cannon.js rigid body, and some proprietary TypedArray-backed data.
 
 ```ts
-const Vector3 = { x: Harmony.formats.float64 /* etc */ }
-const Mesh = Harmony.makeSchema(world, { position: Vector3 })
-const Body = Harmony.makeSchema(world, { position: Vector3 })
-const PlayerInfo = Harmony.makeBinarySchema(world, { id: Harmony.formats.uint32 })
+const Vector3 = { x: formats.float64 /* etc */ }
+const Mesh = Schema.make(world, { position: Vector3 })
+const Body = Schema.make(world, { position: Vector3 })
+const PlayerInfo = Schema.makeBinary(world, { id: formats.uint32 })
 const Player = [Mesh, Body, PlayerInfo] as const
 
 const mesh = new Three.Mesh(new Three.SphereGeometry(), new Three.MeshBasicMaterial())
 const body = new Cannon.Body({ mass: 1, shape: new Cannon.Sphere(1) })
 
-Harmony.makeEntity(world, Player, [mesh, body, { id: 123 }])
+Entity.make(world, Player, [mesh, body, { id: 123 }])
 ```
 
 Note that we still need to define the shape of third party objects, as seen in the `Mesh` and `Body` variables. This supplies Harmony with static type information for queries and provides the ECS with important runtime information for serialization, etc.

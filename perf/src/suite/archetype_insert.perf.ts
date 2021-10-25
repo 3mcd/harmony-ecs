@@ -1,17 +1,17 @@
 import * as Harmony from "../../../lib/src"
-import { makeBinarySchema, makeEntity, makeWorld, World } from "../../../lib/src"
+import { Schema, Entity, World } from "../../../lib/src"
 import { Table } from "../../../lib/src/archetype"
 import { makePerfOnce } from "../perf"
 
 function makeFixture() {
-  const world = makeWorld(1_000_000)
+  const world = World.make(1_000_000)
 
-  const A = makeBinarySchema(world, {})
-  const B = makeBinarySchema(world, {})
-  const C = makeBinarySchema(world, {})
-  const D = makeBinarySchema(world, {})
-  const E = makeBinarySchema(world, {})
-  const F = makeBinarySchema(world, {})
+  const A = Schema.makeBinary(world, {})
+  const B = Schema.makeBinary(world, {})
+  const C = Schema.makeBinary(world, {})
+  const D = Schema.makeBinary(world, {})
+  const E = Schema.makeBinary(world, {})
+  const F = Schema.makeBinary(world, {})
 
   const types = [
     [A, B, C],
@@ -36,7 +36,7 @@ function makeFixture() {
 
 const results: number[] = []
 
-let world: World
+let world: World.World
 
 for (let i = 0; i < 10; i++) {
   const fixture = makeFixture()
@@ -45,7 +45,7 @@ for (let i = 0; i < 10; i++) {
   for (let i = fixture.types.length - 1; i >= 0; i--) {
     const count = Math.random() * 100
     for (let j = 0; j < count; j++) {
-      makeEntity(world, fixture.types[i]!)
+      Entity.make(world, fixture.types[i]!)
     }
   }
   const end = performance.now()

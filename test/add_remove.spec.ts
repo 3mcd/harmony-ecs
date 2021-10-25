@@ -1,31 +1,22 @@
-import {
-  formats,
-  makeBinarySchema,
-  makeEntity,
-  makeQuery,
-  makeWorld,
-  not,
-  set,
-  unset,
-} from "../lib/src"
+import { formats, Entity, Schema, Query, World } from "../lib/src"
 
 describe("add_remove", () => {
   it("transitions entities between archetypes", () => {
     const ENTITY_COUNT = 2
-    const world = makeWorld(ENTITY_COUNT)
-    const A = makeBinarySchema(world, formats.float64)
-    const B = makeBinarySchema(world, formats.float64)
-    const qa = makeQuery(world, [A], not([B]))
-    const qab = makeQuery(world, [A, B])
+    const world = World.make(ENTITY_COUNT)
+    const A = Schema.makeBinary(world, formats.float64)
+    const B = Schema.makeBinary(world, formats.float64)
+    const qa = Query.make(world, [A], Query.not([B]))
+    const qab = Query.make(world, [A, B])
 
     for (let i = 0; i < ENTITY_COUNT; i++) {
-      makeEntity(world, [A])
+      Entity.make(world, [A])
     }
 
     for (let i = 0; i < qa.length; i++) {
       const [e] = qa[i]!
       for (let j = e.length - 1; j >= 0; j--) {
-        set(world, e[j]!, [B])
+        Entity.set(world, e[j]!, [B])
       }
     }
 
@@ -42,7 +33,7 @@ describe("add_remove", () => {
     for (let i = 0; i < qab.length; i++) {
       const [e] = qab[i]!
       for (let j = e.length - 1; j >= 0; j--) {
-        unset(world, e[j]!, [B])
+        Entity.unset(world, e[j]!, [B])
       }
     }
 
@@ -59,7 +50,7 @@ describe("add_remove", () => {
     for (let i = 0; i < qa.length; i++) {
       const [e] = qa[i]!
       for (let j = e.length - 1; j >= 0; j--) {
-        set(world, e[j]!, [B])
+        Entity.set(world, e[j]!, [B])
       }
     }
 

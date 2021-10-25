@@ -57,11 +57,11 @@ export function makeComponentSet(
   type: Type.Type,
   data: ComponentSetInit,
 ): ComponentSet {
-  const set: ComponentSet = []
+  const values: ComponentSet = []
   for (let i = 0; i < type.length; i++) {
     const id = type[i]
     Debug.invariant(id !== undefined)
-    set[id] = data[i] ?? expressSchema(World.findSchemaById(world, id))
+    values[id] = data[i] ?? expressSchema(World.findSchemaById(world, id))
   }
-  return set
+  return values
 }

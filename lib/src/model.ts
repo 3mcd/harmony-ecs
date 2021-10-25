@@ -58,17 +58,14 @@ export type BinarySchema = BinaryScalarSchema | BinaryStructSchema
 export type NativeSchema = NativeScalarSchema | NativeObjectSchema
 export type Schema = BinarySchema | NativeSchema
 export type Shape<$Type extends { shape: unknown }> = $Type["shape"]
-export type SchemaId<$Schema extends Schema = Schema> = Types.Opaque<
-  Entity.Entity,
-  $Schema
->
+export type SchemaId<$Schema extends Schema = Schema> = Types.Opaque<Entity.Id, $Schema>
 
 function makeFormat<
   $Kind extends FormatKind,
   $Binary extends Types.TypedArrayConstructor,
 >(kind: $Kind, binary: $Binary): Format<$Kind, $Binary> {
   return {
-    [Symbols.internal$format]: true,
+    [Symbols.$format]: true,
     kind,
     binary,
   } as { kind: $Kind; binary: $Binary }
@@ -108,7 +105,7 @@ type DeriveNativeSchema<$Shape extends Shape<NativeSchema>> =
     : never
 
 export function isFormat(object: object): object is Format {
-  return Symbols.internal$format in object
+  return Symbols.$format in object
 }
 
 export function isBinarySchema(schema: Schema): schema is BinarySchema {
@@ -123,7 +120,7 @@ export function isNativeSchema(schema: Schema): schema is NativeSchema {
   )
 }
 
-export function makeBinarySchema<$Shape extends Shape<BinarySchema>>(
+export function makeBinary<$Shape extends Shape<BinarySchema>>(
   world: World.World,
   shape: $Shape,
   reserve?: number,
@@ -138,7 +135,8 @@ export function makeBinarySchema<$Shape extends Shape<BinarySchema>>(
   World.registerSchema(world, id, schema)
   return id as DeriveBinarySchema<$Shape>
 }
-export function makeSchema<$Shape extends Shape<NativeSchema>>(
+
+export function make<$Shape extends Shape<NativeSchema>>(
   world: World.World,
   shape: $Shape,
   reserve?: number,

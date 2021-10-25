@@ -1,16 +1,16 @@
-import * as Harmony from "../lib/src"
+import { Entity, Query, Schema, World } from "../lib/src"
 import { isEqual, isSupersetOf } from "../lib/src/type"
 
 describe("query counts", () => {
   const ENTITY_COUNT = 1_500
-  const world = Harmony.makeWorld(ENTITY_COUNT)
+  const world = World.make(ENTITY_COUNT)
 
-  const A = Harmony.makeBinarySchema(world, {})
-  const B = Harmony.makeBinarySchema(world, {})
-  const C = Harmony.makeBinarySchema(world, {})
-  const D = Harmony.makeBinarySchema(world, {})
-  const E = Harmony.makeBinarySchema(world, {})
-  const F = Harmony.makeBinarySchema(world, {})
+  const A = Schema.makeBinary(world, {})
+  const B = Schema.makeBinary(world, {})
+  const C = Schema.makeBinary(world, {})
+  const D = Schema.makeBinary(world, {})
+  const E = Schema.makeBinary(world, {})
+  const F = Schema.makeBinary(world, {})
 
   const types = [
     [A],
@@ -30,11 +30,11 @@ describe("query counts", () => {
     [A, B, C, D, E, F],
   ]
 
-  const queries = types.map(type => Harmony.makeQuery(world, type))
+  const queries = types.map(type => Query.make(world, type))
   const entitiesPerType = ENTITY_COUNT / types.length
 
   types.forEach(type => {
-    for (let i = 0; i < entitiesPerType; i++) Harmony.makeEntity(world, type)
+    for (let i = 0; i < entitiesPerType; i++) Entity.make(world, type)
   })
 
   const expectedEntityCounts = types.map(type =>

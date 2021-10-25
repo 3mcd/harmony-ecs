@@ -1,14 +1,7 @@
 import * as Cannon from "cannon-es"
 import * as Three from "three"
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls"
-import {
-  formats,
-  makeEntity,
-  makeQuery,
-  makeSchema,
-  makeWorld,
-  set,
-} from "../../../lib/src"
+import { formats, World, Schema, Query, Entity } from "../../../lib/src"
 
 const BOUNCE_IMPULSE = new Cannon.Vec3(0, 10, 0)
 
@@ -20,18 +13,18 @@ const Quaternion = {
   w: formats.float64,
 }
 const Object3D = { position: Vec3, quaternion: Quaternion }
-const world = makeWorld(1_000)
-const Body = makeSchema(world, Object3D)
-const Mesh = makeSchema(world, Object3D)
-const Bounce = makeSchema(world, { latestBounceTime: formats.float64 })
+const world = World.make(1_000)
+const Body = Schema.make(world, Object3D)
+const Mesh = Schema.make(world, Object3D)
+const Bounce = Schema.make(world, { latestBounceTime: formats.float64 })
 const canvas = document.getElementById("game") as HTMLCanvasElement
 const renderer = new Three.WebGLRenderer({ antialias: true, canvas })
 const camera = new Three.PerspectiveCamera(45, 1, 0.1, 2000000)
 const controls = new OrbitControls(camera, renderer.domElement)
 const scene = new Three.Scene()
 const simulation = new Cannon.World({ gravity: new Cannon.Vec3(0, -9.81, 0) })
-const bodies = makeQuery(world, [Body, Mesh] as const)
-const bouncing = makeQuery(world, [Body, Bounce] as const)
+const bodies = Query.make(world, [Body, Mesh] as const)
+const bouncing = Query.make(world, [Body, Bounce] as const)
 
 scene.add(new Three.AmbientLight(0x404040), new Three.DirectionalLight(0xffffff, 0.5))
 
@@ -94,15 +87,15 @@ let spawnInit = true
 function spawn() {
   if (spawnInit) {
     // spawn ground
-    makeEntity(world, [Body, Mesh], createGround())
+    Entity.make(world, [Body, Mesh], createGround())
     // spawn boxes
     for (let i = 0; i < 100; i++) {
-      const entity = makeEntity(
+      const entity = Entity.make(
         world,
         [Body, Mesh],
         createBox(new Cannon.Vec3(random(25), 20, random(25))),
       )
-      if (i % 2 === 0) set(world, entity, [Bounce], [{ latestBounceTime: 0 }])
+      if (i % 2 === 0) Entity.set(world, entity, [Bounce], [{ latestBounceTime: 0 }])
     }
     spawnInit = false
   }

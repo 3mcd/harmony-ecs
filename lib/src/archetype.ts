@@ -88,14 +88,14 @@ export type Store<$Type extends Type.Type> = {
 export type Table<$Type extends Type.Type = Type.Type> = {
   edgesSet: Table[]
   edgesUnset: Table[]
-  entities: Entity.Entity[]
+  entities: Entity.Id[]
   entityIndex: number[]
   layout: number[]
   real: boolean
   onTableInsert: Signal.Signal<Table>
   onRealize: Signal.Signal<void>
-  onEnter: Signal.Signal<Entity.Entity[]>
-  onExit: Signal.Signal<Entity.Entity[]>
+  onEnter: Signal.Signal<Entity.Id[]>
+  onExit: Signal.Signal<Entity.Id[]>
   store: Store<$Type>
   type: $Type
 }
@@ -134,7 +134,7 @@ function makeColumn(schema: Model.Schema, size: number): Column {
   return { kind: schema.kind, schema, data } as Column
 }
 
-function makeTable<$Type extends Type.Type>(
+export function makeStore<$Type extends Type.Type>(
   world: World.World,
   type: $Type,
 ): Store<$Type> {
@@ -143,31 +143,11 @@ function makeTable<$Type extends Type.Type>(
   ) as unknown as Store<$Type>
 }
 
-export function makeRoot(): Table {
-  return {
-    edgesSet: [],
-    edgesUnset: [],
-    entities: [],
-    entityIndex: [],
-    layout: [],
-    real: false,
-    onTableInsert: Signal.make(),
-    onRealize: Signal.make(),
-    onEnter: Signal.make(),
-    onExit: Signal.make(),
-    store: [],
-    type: [],
-  }
-}
-
-export function make<$Type extends Type.Type>(
-  world: World.World,
+export function makeInner<$Type extends Type.Type>(
   type: $Type,
+  store: Store<$Type>,
 ): Table<$Type> {
   Type.invariantNormalized(type)
-  const entities: Entity.Entity[] = []
-  const entityIndex: number[] = []
-  const table = makeTable(world, type)
   const layout: number[] = []
   for (let i = 0; i < type.length; i++) {
     const id = type[i]
@@ -177,17 +157,25 @@ export function make<$Type extends Type.Type>(
   return {
     edgesSet: [],
     edgesUnset: [],
-    entities,
-    entityIndex,
+    entities: [],
+    entityIndex: [],
     layout,
     real: false,
     onTableInsert: Signal.make(),
     onRealize: Signal.make(),
     onEnter: Signal.make(),
     onExit: Signal.make(),
-    store: table,
+    store,
     type,
   }
+}
+
+export function make<$Type extends Type.Type>(
+  world: World.World,
+  type: $Type,
+): Table<$Type> {
+  const store = makeStore(world, type)
+  return makeInner(type, store)
 }
 
 export function ensureReal(archetype: Table) {
@@ -197,7 +185,7 @@ export function ensureReal(archetype: Table) {
   }
 }
 
-export function insert(table: Table, entity: Entity.Entity, set: Component.ComponentSet) {
+export function insert(table: Table, entity: Entity.Id, set: Component.ComponentSet) {
   const index = table.entities.length
   for (let i = 0; i < table.type.length; i++) {
     const id = table.type[i]
@@ -360,7 +348,7 @@ export function copyColumnData(
 }
 
 export function move(
-  entity: Entity.Entity,
+  entity: Entity.Id,
   prev: Table,
   next: Table,
   components?: Component.ComponentSet,
@@ -369,18 +357,18 @@ export function move(
   for (let i = 0; i < next.type.length; i++) {
     const id = next.type[i]
     Debug.invariant(id !== undefined)
-    const j = prev.layout[id]
+    const columnIndex = prev.layout[id]
     const nextColumn = next.store[i]
     Debug.invariant(nextColumn !== undefined)
-    if (j === undefined) {
+    if (columnIndex === undefined) {
       Debug.invariant(components !== undefined)
       const value = components[id]
       Debug.invariant(value !== undefined)
       writeColumnData(nextColumn, nextIndex, value)
     } else {
-      Debug.invariant(j !== undefined)
+      Debug.invariant(columnIndex !== undefined)
       const prevIndex = prev.entityIndex[entity]
-      const prevColumn = prev.store[j]
+      const prevColumn = prev.store[columnIndex]
       const value = components?.[id]
       Debug.invariant(prevIndex !== undefined)
       Debug.invariant(prevColumn !== undefined)
@@ -398,7 +386,7 @@ export function move(
 }
 
 export function write(
-  entity: Entity.Entity,
+  entity: Entity.Id,
   archetype: Table,
   components: Component.ComponentSet,
 ) {
