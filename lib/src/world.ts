@@ -111,6 +111,7 @@ export function unset<$Type extends Type.Type>(
   const type = Type.xor(prev.type, layout)
   const next = Graph.findOrMake(world, type)
   Archetype.move(entity, prev, next)
+  setEntityTable(world, entity, next)
 }
 
 export function makeEntity<$Type extends Type.Type>(

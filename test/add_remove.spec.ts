@@ -25,7 +25,7 @@ describe("add_remove", () => {
     for (let i = 0; i < qa.length; i++) {
       const [e] = qa[i]!
       for (let j = e.length - 1; j >= 0; j--) {
-        set(world, e[j]!, B)
+        set(world, e[j]!, [B])
       }
     }
 
@@ -42,7 +42,7 @@ describe("add_remove", () => {
     for (let i = 0; i < qab.length; i++) {
       const [e] = qab[i]!
       for (let j = e.length - 1; j >= 0; j--) {
-        unset(world, e[j]!, B)
+        unset(world, e[j]!, [B])
       }
     }
 
@@ -59,9 +59,11 @@ describe("add_remove", () => {
     for (let i = 0; i < qa.length; i++) {
       const [e] = qa[i]!
       for (let j = e.length - 1; j >= 0; j--) {
-        set(world, e[j]!, B)
+        set(world, e[j]!, [B])
       }
     }
+
+    // console.log(world.rootTable.edgesSet[A]!.edgesSet[B])
 
     let qaCountPostReset = 0
     for (let i = 0; i < qa.length; i++) {

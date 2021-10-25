@@ -52,7 +52,7 @@ export function remove<$Key extends number>(map: SparseMap<unknown, $Key>, key: 
   const i = map.index[key]
   if (i === undefined) return
   const k = map.keys.pop()
-  const h = -map.size
+  const h = --map.size
   map.index[key] = map.values[key] = undefined
   if (h !== i) {
     map.keys[i!] = k!

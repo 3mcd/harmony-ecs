@@ -16,6 +16,5 @@ describe("defer", () => {
       Cache.deleteEntity(cache, entities[i]!)
     }
     Cache.apply(cache, world)
-    console.log(m)
   })
 })
