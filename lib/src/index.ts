@@ -5,6 +5,8 @@ export * as Query from "./query"
 export * as Signal from "./signal"
 export * as World from "./world"
 
+export { formats } from "./model"
+
 import * as EntityModule from "./entity"
 
 const { deleteEntity, ...EntityModuleWithoutDelete } = EntityModule
