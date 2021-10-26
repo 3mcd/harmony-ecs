@@ -1,30 +1,31 @@
 import * as Component from "./component"
 import * as Debug from "./debug"
 import * as Entity from "./entity"
+import * as Format from "./format"
 import * as Model from "./model"
 import * as Signal from "./signal"
 import * as Type from "./type"
 import * as Types from "./types"
 import * as World from "./world"
 
-export type BinaryData<$Shape extends Model.Shape<Model.BinarySchema>> =
-  $Shape extends Model.Format ? number : { [K in keyof $Shape]: number }
+export type BinaryData<$Shape extends Model.Shape<Model.AnyBinarySchema>> =
+  $Shape extends Format.Format ? number : { [K in keyof $Shape]: number }
 
-export type NativeData<$Shape extends Model.Shape<Model.NativeSchema>> =
-  $Shape extends Model.Format
+export type NativeData<$Shape extends Model.Shape<Model.AnyNativeSchema>> =
+  $Shape extends Format.Format
     ? number
     : {
-        [K in keyof $Shape]: $Shape[K] extends Model.Format
+        [K in keyof $Shape]: $Shape[K] extends Format.Format
           ? number
-          : $Shape[K] extends Model.Shape<Model.NativeSchema>
+          : $Shape[K] extends Model.Shape<Model.AnyNativeSchema>
           ? NativeData<$Shape[K]>
           : never
       }
 
-export type DataOfShape<$Shape extends Model.Shape<Model.Schema>> =
-  $Shape extends Model.Shape<Model.BinarySchema>
+export type DataOfShape<$Shape extends Model.Shape<Model.AnySchema>> =
+  $Shape extends Model.Shape<Model.AnyBinarySchema>
     ? BinaryData<$Shape>
-    : $Shape extends Model.Shape<Model.NativeSchema>
+    : $Shape extends Model.Shape<Model.AnyNativeSchema>
     ? NativeData<$Shape>
     : never
 
@@ -68,15 +69,16 @@ type ComplexNativeColumn<
   data: NativeData<Model.Shape<$Schema>>[]
 }
 
-type DeriveColumn<$Schema extends Model.Schema> = $Schema extends Model.BinaryScalarSchema
-  ? ScalarBinaryColumn<$Schema>
-  : $Schema extends Model.BinaryStructSchema
-  ? ComplexBinaryColumn<$Schema>
-  : $Schema extends Model.NativeScalarSchema
-  ? ScalarNativeColumn<$Schema>
-  : $Schema extends Model.NativeObjectSchema
-  ? ComplexNativeColumn<$Schema>
-  : never
+type DeriveColumn<$Schema extends Model.AnySchema> =
+  $Schema extends Model.BinaryScalarSchema
+    ? ScalarBinaryColumn<$Schema>
+    : $Schema extends Model.BinaryStructSchema
+    ? ComplexBinaryColumn<$Schema>
+    : $Schema extends Model.NativeScalarSchema
+    ? ScalarNativeColumn<$Schema>
+    : $Schema extends Model.NativeObjectSchema
+    ? ComplexNativeColumn<$Schema>
+    : never
 
 export type Column<$SchemaId extends Model.SchemaId = Model.SchemaId> =
   $SchemaId extends Model.SchemaId<infer $Schema> ? DeriveColumn<$Schema> : never
@@ -106,7 +108,7 @@ export type Row<$Type extends Type.Type> = {
 
 const ArrayBufferConstructor = globalThis.SharedArrayBuffer ?? globalThis.ArrayBuffer
 
-function makeColumn(schema: Model.Schema, size: number): Column {
+function makeColumn(schema: Model.AnySchema, size: number): Column {
   let data: Column["data"]
   switch (schema.kind) {
     case Model.SchemaKind.BinaryScalar: {

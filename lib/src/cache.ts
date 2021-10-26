@@ -8,7 +8,7 @@ import * as World from "./world"
 import * as Symbols from "./symbols"
 
 // An EntityDelta describes a change made to an entity.
-type EntityDelta =
+export type EntityDelta =
   // Remove (destroy) operations are expressed with a tombstone symbol:
   | typeof Symbols.$tombstone
   // Component changes (add/remove) are expressed as a sparse map, where the
@@ -16,7 +16,7 @@ type EntityDelta =
   // the case a component was removed.
   | SparseMap.SparseMap<typeof Symbols.$tombstone | unknown, Model.SchemaId>
 
-type Cache = SparseMap.SparseMap<EntityDelta, Entity.Id>
+export type Cache = SparseMap.SparseMap<EntityDelta, Entity.Id>
 
 function ensureEntityDelta(cache: Cache, entity: Entity.Id) {
   let delta = SparseMap.get(cache, entity)
@@ -52,7 +52,7 @@ export function unset(cache: Cache, entity: Entity.Id, type: Type.Type) {
   }
 }
 
-export function deleteEntity(cache: Cache, entity: Entity.Id) {
+export function destroy(cache: Cache, entity: Entity.Id) {
   SparseMap.set(cache, entity, Symbols.$tombstone)
 }
 
@@ -64,7 +64,7 @@ export function apply(cache: Cache, world: World.World) {
   SparseMap.forEach(cache, function applyEntityDelta(delta, entity) {
     // const prev = World.getEntityTable(world, entity)
     if (delta === Symbols.$tombstone) {
-      Entity.deleteEntity(world, entity)
+      Entity.destroy(world, entity)
     } else {
       SparseMap.forEach(delta, function applyComponentDelta(data, id) {
         if (data === Symbols.$tombstone) {

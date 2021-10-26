@@ -1,10 +1,34 @@
+/**
+ * A callback function passed to `SparseMap.forEach`
+ */
+export type SparseMapIteratee<$Value, $Key extends number> = (
+  value: $Value,
+  key: $Key,
+) => void
+
+/**
+ * A map that references values using unsigned integers. Uses a packed array in
+ * conjunction with a key-value index for fast lookup, add/remove operations,
+ * and iteration. SparseMap is used frequently in Harmony since entities
+ * (including schema and game objects) are represented as unsigned integers.
+ *
+ * SparseMap is faster than ES Maps in all cases. It is slower than sparse
+ * arrays for read/write operations, but faster to iterate.
+ */
 export type SparseMap<$Value = unknown, $Key extends number = number> = {
+  /** @readonly */
   size: number
+  /** @internal */
   keys: $Key[]
+  /** @internal */
   values: $Value[]
+  /** @internal */
   index: Record<$Key, number | undefined>
 }
 
+/**
+ * Create a SparseMap.
+ */
 export function make<$Value, $Key extends number = number>(
   init: ($Value | undefined)[] = [],
 ): SparseMap<$Value, $Key> {
@@ -29,13 +53,20 @@ export function make<$Value, $Key extends number = number>(
   }
 }
 
+/**
+ * Retrieve the value for a given key from a SparseMap. Returns `undefined` if
+ * no record exists for the given key.
+ */
 export function get<$Value, $Key extends number>(
   map: SparseMap<$Value, $Key>,
   key: $Key,
-) {
+): $Value | undefined {
   return map.values[key]
 }
 
+/**
+ * Add or update the value of an entry with the given key within a SparseMap.
+ */
 export function set<$Value, $Key extends number>(
   map: SparseMap<$Value, $Key>,
   key: $Key,
@@ -48,6 +79,9 @@ export function set<$Value, $Key extends number>(
   map.values[key] = value
 }
 
+/**
+ * Remove an entry by key from a SparseMap.
+ */
 export function remove<$Key extends number>(map: SparseMap<unknown, $Key>, key: $Key) {
   const i = map.index[key]
   if (i === undefined) return
@@ -60,10 +94,17 @@ export function remove<$Key extends number>(map: SparseMap<unknown, $Key>, key: 
   }
 }
 
+/**
+ * Check for the existence of a value by key within a SparseMap. Returns true
+ * if the SparseMap contains an entry for the provided key.
+ */
 export function has(map: SparseMap, key: number) {
   return map.index[key] !== undefined
 }
 
+/**
+ * Clear all entries from a SparseMap.
+ */
 export function clear(map: SparseMap) {
   map.keys.length = 0
   map.values.length = 0
@@ -71,9 +112,12 @@ export function clear(map: SparseMap) {
   map.size = 0
 }
 
+/**
+ * Iterate a SparseMap using a iteratee function.
+ */
 export function forEach<$Value, $Key extends number>(
   map: SparseMap<$Value, $Key>,
-  iteratee: (value: $Value, key: $Key) => unknown,
+  iteratee: SparseMapIteratee<$Value, $Key>,
 ) {
   for (let i = 0; i < map.size; i++) {
     const k = map.keys[i]!

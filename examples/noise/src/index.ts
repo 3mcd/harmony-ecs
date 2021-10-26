@@ -1,4 +1,4 @@
-import { formats, Schema, Entity, Query, World } from "../../../lib/src"
+import { Format, Schema, Entity, Query, World } from "../../../lib/src"
 
 const SIZE = 500
 const COUNT = SIZE * SIZE
@@ -10,8 +10,8 @@ const buf = new ArrayBuffer(image.data.length)
 const buf8 = new Uint8ClampedArray(buf)
 const buf32 = new Uint32Array(buf)
 
-const Position = Schema.makeBinary(world, { x: formats.uint32, y: formats.uint32 })
-const Fixed = Schema.makeBinary(world, formats.uint32)
+const Position = Schema.makeBinary(world, { x: Format.uint32, y: Format.uint32 })
+const Fixed = Schema.makeBinary(world, Format.uint32)
 const Point = [Position] as const
 const PointFixed = [...Point, Fixed] as const
 

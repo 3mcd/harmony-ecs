@@ -1,22 +1,22 @@
 import * as Cannon from "cannon-es"
 import * as Three from "three"
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls"
-import { formats, World, Schema, Query, Entity } from "../../../lib/src"
+import { Format, World, Schema, Query, Entity } from "../../../lib/src"
 
 const BOUNCE_IMPULSE = new Cannon.Vec3(0, 10, 0)
 
-const Vec3 = { x: formats.float64, y: formats.float64, z: formats.float64 }
+const Vec3 = { x: Format.float64, y: Format.float64, z: Format.float64 }
 const Quaternion = {
-  x: formats.float64,
-  y: formats.float64,
-  z: formats.float64,
-  w: formats.float64,
+  x: Format.float64,
+  y: Format.float64,
+  z: Format.float64,
+  w: Format.float64,
 }
 const Object3D = { position: Vec3, quaternion: Quaternion }
 const world = World.make(1_000)
 const Body = Schema.make(world, Object3D)
 const Mesh = Schema.make(world, Object3D)
-const Bounce = Schema.make(world, { latestBounceTime: formats.float64 })
+const Bounce = Schema.make(world, { latestBounceTime: Format.float64 })
 const canvas = document.getElementById("game") as HTMLCanvasElement
 const renderer = new Three.WebGLRenderer({ antialias: true, canvas })
 const camera = new Three.PerspectiveCamera(45, 1, 0.1, 2000000)

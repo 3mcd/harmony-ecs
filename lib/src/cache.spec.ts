@@ -10,8 +10,8 @@ describe("Cache", () => {
     const cache = Cache.make()
     const A = Model.make(world, {})
     const a = Query.make(world, [A])
-    Cache.set(cache, World.reserveEntity(world), [A], [{}])
-    Cache.set(cache, World.reserveEntity(world), [A], [{}])
+    Cache.set(cache, Entity.make(world), [A], [{}])
+    Cache.set(cache, Entity.make(world), [A], [{}])
     for (let i = 0; i < a.length; i++) {
       const [e] = a[i]!
       expect(e!.length).toBe(0)

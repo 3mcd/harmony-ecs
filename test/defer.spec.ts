@@ -13,7 +13,7 @@ describe("defer", () => {
     }
     const m = Monitor.make(world, [A])
     for (let i = 0; i < entities.length; i++) {
-      Cache.deleteEntity(cache, entities[i]!)
+      Cache.destroy(cache, entities[i]!)
     }
     Cache.apply(cache, world)
   })

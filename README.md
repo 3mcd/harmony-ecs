@@ -27,11 +27,11 @@ This repo contains examples in the [`examples`](./examples) directory. You can r
 Below is a sample of Harmony's API, where a TypedArray `Velocity` component is used to update an object `Position` component:
 
 ```ts
-import { World, Schema, Entity, Query, formats } from "harmony-ecs"
+import { World, Schema, Entity, Query, Format } from "harmony-ecs"
 
 const Vector2 = {
-  x: formats.float64,
-  y: formats.float64,
+  x: Format.float64,
+  y: Format.float64,
 }
 const world = World.make(1_000_000)
 const Position = Schema.make(world, Vector2)
@@ -55,10 +55,10 @@ for (const [entities, [p, v]] of kinetics) {
 Harmony does not modify objects, making it highly compatible with third-party libraries. Take the following example where an entity is composed of a Three.js mesh, Cannon.js rigid body, and some proprietary TypedArray-backed data.
 
 ```ts
-const Vector3 = { x: formats.float64 /* etc */ }
+const Vector3 = { x: Format.float64 /* etc */ }
 const Mesh = Schema.make(world, { position: Vector3 })
 const Body = Schema.make(world, { position: Vector3 })
-const PlayerInfo = Schema.makeBinary(world, { id: formats.uint32 })
+const PlayerInfo = Schema.makeBinary(world, { id: Format.uint32 })
 const Player = [Mesh, Body, PlayerInfo] as const
 
 const mesh = new Three.Mesh(new Three.SphereGeometry(), new Three.MeshBasicMaterial())

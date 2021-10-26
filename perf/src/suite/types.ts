@@ -1,3 +1,3 @@
-import { formats } from "../../../lib/src"
+import { Format } from "../../../lib/src"
 
-export const Vector3 = { x: formats.float64, y: formats.float64, z: formats.float64 }
+export const Vector3 = { x: Format.float64, y: Format.float64, z: Format.float64 }

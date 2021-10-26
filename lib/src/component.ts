@@ -9,7 +9,7 @@ export type ComponentSetInit<$Type extends Type.Type = Type.Type> = {
   [K in keyof $Type]?: Archetype.Row<$Type>[K]
 }
 
-export function expressBinaryShape<$Shape extends Model.Shape<Model.BinarySchema>>(
+export function expressBinaryShape<$Shape extends Model.Shape<Model.AnyBinarySchema>>(
   shape: $Shape,
 ): Archetype.BinaryData<$Shape> {
   if (Model.isFormat(shape)) {
@@ -22,7 +22,7 @@ export function expressBinaryShape<$Shape extends Model.Shape<Model.BinarySchema
   return object as Archetype.BinaryData<$Shape>
 }
 
-export function expressNativeShape<$Shape extends Model.Shape<Model.NativeSchema>>(
+export function expressNativeShape<$Shape extends Model.Shape<Model.AnyNativeSchema>>(
   shape: $Shape,
 ): Archetype.NativeData<$Shape> {
   if (Model.isFormat(shape)) {
@@ -32,12 +32,12 @@ export function expressNativeShape<$Shape extends Model.Shape<Model.NativeSchema
   for (const key in shape) {
     object[key] = Model.isFormat(shape)
       ? 0
-      : expressNativeShape(shape[key] as unknown as Model.Shape<Model.NativeSchema>)
+      : expressNativeShape(shape[key] as unknown as Model.Shape<Model.AnyNativeSchema>)
   }
   return object as Archetype.NativeData<$Shape>
 }
 
-export function expressSchema<$Schema extends Model.Schema>(schema: $Schema) {
+export function expressSchema<$Schema extends Model.AnySchema>(schema: $Schema) {
   return Model.isBinarySchema(schema)
     ? expressBinaryShape(schema.shape)
     : expressNativeShape(schema.shape)

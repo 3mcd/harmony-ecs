@@ -1,13 +1,13 @@
-import { formats, Schema, Entity, Query, World } from "../lib/src"
+import { Format, Schema, Entity, Query, World } from "../lib/src"
 
 describe("query_dynamic", () => {
   it("updates dynamic queries with newly created archetypes", () => {
     const world = World.make(4)
-    const A = Schema.makeBinary(world, formats.float64)
-    const B = Schema.makeBinary(world, formats.float64)
-    const C = Schema.makeBinary(world, formats.float64)
-    const D = Schema.makeBinary(world, formats.float64)
-    const E = Schema.makeBinary(world, formats.float64)
+    const A = Schema.makeBinary(world, Format.float64)
+    const B = Schema.makeBinary(world, Format.float64)
+    const C = Schema.makeBinary(world, Format.float64)
+    const D = Schema.makeBinary(world, Format.float64)
+    const E = Schema.makeBinary(world, Format.float64)
     const qab = Query.make(world, [A, B])
     const qcd = Query.make(world, [C, D])
     const qce = Query.make(world, [C, E])

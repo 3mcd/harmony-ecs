@@ -16,7 +16,7 @@ export type TypedArrayConstructor = {
 
 export type Construct<$Ctor> = $Ctor extends { new (...args: any[]): infer _ } ? _ : never
 
-declare class OpaqueTag<$Tag> {
+export declare class OpaqueTag<$Tag> {
   protected tag: $Tag
 }
 
