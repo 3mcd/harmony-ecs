@@ -77,3 +77,8 @@ export function apply(cache: Cache, world: World.World) {
     // const next = World.getEntityTable(world, entity)
   })
 }
+
+export function clear(cache: Cache) {
+  SparseMap.clear(cache)
+  return cache
+}
