@@ -2,7 +2,7 @@
   "name": "harmony-ecs",
   "author": "Eric McDaniel <eric.g.mcdaniel@gmail.com>",
   "description": "A small archetypal ECS focused on compatibility and performance",
-  "version": "0.0.8",
+  "version": "0.0.9",
   "license": "MIT",
   "type": "module",
   "types": "./lib/dist/esm/index.d.ts",
