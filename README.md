@@ -18,7 +18,8 @@ npm install harmony-ecs
 
 ## Documentation
 
-Documentation currently resides on the repository [wiki](https://github.com/3mcd/harmony-ecs/wiki).
+- [Wiki](https://github.com/3mcd/harmony-ecs/wiki)
+- [API docs](https://3mcd.github.io/harmony-ecs)
 
 ## Examples
 
