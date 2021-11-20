@@ -37,6 +37,7 @@ function calcRollingMeanOffsetSeconds(clockSync: ClockSync) {
     Debug.invariant(sample !== undefined)
     totalOffsetSum += sample
   }
+
   return totalOffsetSum / (end - start)
 }
 
@@ -57,6 +58,31 @@ function calcSamplesToDiscardPerExtreme(clockSync: ClockSync) {
   )
 }
 
+export function addSample(clockSync: ClockSync, measuredSecondsOffset: number) {
+  // find the target index in the sorted array of offsets
+  const rank = getTargetSortedIndex(clockSync.samplesOrderedByRank, measuredSecondsOffset)
+  // insert the new offset sample
+  clockSync.sampleRankQueue.unshift(rank)
+  clockSync.sampleValueQueue.unshift(measuredSecondsOffset)
+  clockSync.samplesOrderedByRank.splice(rank, 0, measuredSecondsOffset)
+
+  Debug.invariant(clockSync.samplesOrderedByRank.length <= calcNeededSamples(clockSync))
+  if (clockSync.samplesOrderedByRank.length >= calcNeededSamples(clockSync)) {
+    const rollingMeanOffsetSeconds = calcRollingMeanOffsetSeconds(clockSync)
+    // @ts-ignore
+    if (!isReady(clockSync) || hasDesynced(clockSync, rollingMeanOffsetSeconds)) {
+      clockSync.serverSecondsOffset = rollingMeanOffsetSeconds
+    }
+
+    clockSync.sampleValueQueue.pop()
+    clockSync.samplesOrderedByRank.splice(clockSync.sampleRankQueue.pop()!, 1)
+  }
+}
+
+export function calcNeededSamples(clockSync: ClockSync) {
+  return clockSync.neededSampleCount + calcSamplesToDiscardPerExtreme(clockSync) * 2
+}
+
 export function make(
   neededSampleCount: number,
   assumedOutlierRate: number,
@@ -70,31 +96,4 @@ export function make(
     sampleValueQueue: [],
     maxTolerableDeviation,
   }
-}
-
-export function addSample(clockSync: ClockSync, measuredSecondsOffset: number) {
-  // find the target index in the sorted array of offsets
-  const rank = getTargetSortedIndex(clockSync.samplesOrderedByRank, measuredSecondsOffset)
-  // insert the new offset sample
-  clockSync.sampleRankQueue.unshift(rank)
-  clockSync.sampleValueQueue.unshift(measuredSecondsOffset)
-  clockSync.samplesOrderedByRank.splice(rank, 0, measuredSecondsOffset)
-
-  Debug.invariant(
-    clockSync.samplesOrderedByRank.length <= calcSamplesToDiscardPerExtreme(clockSync),
-  )
-
-  if (clockSync.samplesOrderedByRank.length >= calcNeededSamples(clockSync)) {
-    const rollingMeanOffsetSeconds = calcRollingMeanOffsetSeconds(clockSync)
-    if (!isReady(clockSync) || hasDesynced(clockSync, rollingMeanOffsetSeconds)) {
-      clockSync.serverSecondsOffset = rollingMeanOffsetSeconds
-    }
-
-    clockSync.sampleValueQueue.pop()
-    clockSync.samplesOrderedByRank.splice(clockSync.sampleRankQueue.pop()!, 1)
-  }
-}
-
-function calcNeededSamples(clockSync: ClockSync) {
-  return clockSync.neededSampleCount + calcSamplesToDiscardPerExtreme(clockSync) * 2
 }
