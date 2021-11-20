@@ -2,12 +2,14 @@
 
 An Entity-Component-System (ECS) focused on compatibility and performance. Harmony has a small footprint, making it a good set of building blocks to create a full ECS with.
 
-<img alt="NPM" src="https://img.shields.io/npm/l/harmony-ecs?style=flat-square">
-<img alt="node-current" src="https://img.shields.io/node/v/harmony-ecs?style=flat-square">
-<a href="https://codecov.io/gh/3mcd/harmony-ecs">
-  <img alt="Codecov" src="https://img.shields.io/codecov/c/github/3mcd/harmony-ecs?style=flat-square">
-</a>
-<img alt="npm bundle size" src="https://img.shields.io/bundlephobia/min/harmony-ecs?style=flat-square">
+<p>
+  <img alt="NPM" src="https://img.shields.io/npm/l/harmony-ecs?style=flat-square">
+  <img alt="node-current" src="https://img.shields.io/node/v/harmony-ecs?style=flat-square">
+  <a href="https://codecov.io/gh/3mcd/harmony-ecs">
+    <img alt="Codecov" src="https://img.shields.io/codecov/c/github/3mcd/harmony-ecs?style=flat-square">
+  </a>
+  <img alt="npm bundle size" src="https://img.shields.io/bundlephobia/min/harmony-ecs?style=flat-square">
+</p>
 
 ## Features
 
