@@ -2,6 +2,10 @@
 
 An Entity-Component-System (ECS) focused on compatibility and performance. Harmony has a small footprint, making it a good set of building blocks to create a full ECS with.
 
+<a href="https://codecov.io/gh/3mcd/harmony-ecs">
+  <img alt="Codecov" src="https://img.shields.io/codecov/c/github/3mcd/harmony-ecs?style=flat-square">
+</a>
+
 ## Features
 
 - Hybrid struct-of-array `{x: [0]}` and array-of-struct `[{x: 0}]` storage
