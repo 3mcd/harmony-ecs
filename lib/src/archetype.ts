@@ -69,7 +69,7 @@ type ComplexNativeColumn<
   data: NativeData<Model.Shape<$Schema>>[]
 }
 
-type DeriveColumn<$Schema extends Model.AnySchema> =
+export type ColumnOfSchema<$Schema extends Model.AnySchema> =
   $Schema extends Model.BinaryScalarSchema
     ? ScalarBinaryColumn<$Schema>
     : $Schema extends Model.BinaryStructSchema
@@ -81,7 +81,17 @@ type DeriveColumn<$Schema extends Model.AnySchema> =
     : never
 
 export type Column<$SchemaId extends Model.SchemaId = Model.SchemaId> =
-  $SchemaId extends Model.SchemaId<infer $Schema> ? DeriveColumn<$Schema> : never
+  $SchemaId extends Model.SchemaId<infer $Schema>
+    ? $Schema extends Model.BinaryScalarSchema
+      ? ScalarBinaryColumn<$Schema>
+      : $Schema extends Model.BinaryStructSchema
+      ? ComplexBinaryColumn<$Schema>
+      : $Schema extends Model.NativeScalarSchema
+      ? ScalarNativeColumn<$Schema>
+      : $Schema extends Model.NativeObjectSchema
+      ? ComplexNativeColumn<$Schema>
+      : never
+    : never
 
 export type Store<$Type extends Type.Type> = {
   [K in keyof $Type]: $Type[K] extends Model.SchemaId ? Column<$Type[K]> : never

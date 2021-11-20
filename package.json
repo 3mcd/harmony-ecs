@@ -26,7 +26,7 @@
     "build:cjs": "esbuild --bundle --target=node12.22 --outdir=lib/dist/cjs --format=cjs lib/dist/esm/index.js",
     "build:docs": "typedoc lib/src/index.ts --excludeInternal --sort source-order",
     "prepare": "npm run build",
-    "test": "jest"
+    "test": "jest --verbose"
   },
   "devDependencies": {
     "@babel/core": "^7.15.5",

@@ -1,104 +1,89 @@
 import * as SparseMap from "./sparse_map"
 
-describe("sparse_map", () => {
-  it("init", () => {
-    const smap = SparseMap.make([, , , "a"])
-    expect(SparseMap.get(smap, 3)).toBe("a")
-    expect(smap.size).toBe(1)
+describe("SparseMap", () => {
+  describe("make", () => {
+    it("creates an empty SparseMap when no values are provided", () => {
+      const sparseMap = SparseMap.make()
+      expect(sparseMap.size).toBe(0)
+    })
+    it("creates a SparseMap using a sparse array, initializing an entry for each index-value pair", () => {
+      const sparseMap = SparseMap.make([, , , "a"])
+      expect(SparseMap.get(sparseMap, 3)).toBe("a")
+      expect(sparseMap.size).toBe(1)
+    })
   })
-  it("set", () => {
-    const smap = SparseMap.make()
-    SparseMap.set(smap, 99, "a")
-    SparseMap.set(smap, 42, "b")
-    expect(SparseMap.get(smap, 99)).toBe("a")
-    expect(SparseMap.get(smap, 42)).toBe("b")
-    expect(smap.size).toBe(2)
+
+  describe("get", () => {
+    it("returns the value of a entry at the provided key", () => {
+      const sparseMap = SparseMap.make(["a", "b"])
+      expect(SparseMap.get(sparseMap, 0)).toBe("a")
+      expect(SparseMap.get(sparseMap, 1)).toBe("b")
+    })
+    it("returns undefined for non-existing keys", () => {
+      const sparseMap = SparseMap.make([, "a", "b"])
+      expect(SparseMap.get(sparseMap, 0)).toBe(undefined)
+    })
   })
-  it("remove", () => {
-    const smap = SparseMap.make()
-    SparseMap.set(smap, 12, "c")
-    SparseMap.set(smap, 99, "a")
-    SparseMap.set(smap, 42, "b")
-    SparseMap.remove(smap, 42)
-    expect(SparseMap.get(smap, 42)).toBe(undefined)
-    expect(SparseMap.get(smap, 99)).toBe("a")
-    expect(SparseMap.get(smap, 12)).toBe("c")
-    expect(smap.size).toBe(2)
+
+  describe("set", () => {
+    it("creates new entries at non-existing keys", () => {
+      const sparseMap = SparseMap.make()
+      SparseMap.set(sparseMap, 99, "a")
+      SparseMap.set(sparseMap, 42, "b")
+      expect(SparseMap.get(sparseMap, 99)).toBe("a")
+      expect(SparseMap.get(sparseMap, 42)).toBe("b")
+      expect(sparseMap.size).toBe(2)
+    })
+    it("updates existing entries", () => {
+      const sparseMap = SparseMap.make()
+      SparseMap.set(sparseMap, 0, "a")
+      SparseMap.set(sparseMap, 1, "b")
+      SparseMap.set(sparseMap, 0, "c")
+      SparseMap.set(sparseMap, 1, "d")
+      expect(SparseMap.get(sparseMap, 0)).toBe("c")
+      expect(SparseMap.get(sparseMap, 1)).toBe("d")
+      expect(sparseMap.size).toBe(2)
+    })
+  })
+
+  describe("remove", () => {
+    it("removes the entry of the specified key", () => {
+      const sparseMap = SparseMap.make(["a", "b", "c"])
+      SparseMap.remove(sparseMap, 1)
+      expect(SparseMap.get(sparseMap, 0)).toBe("a")
+      expect(SparseMap.get(sparseMap, 1)).toBe(undefined)
+      expect(SparseMap.get(sparseMap, 2)).toBe("c")
+      expect(sparseMap.size).toBe(2)
+    })
+    it("does not alter the SparseMap when called with a non-existing key", () => {
+      const sparseMap = SparseMap.make(["a", , "c"])
+      SparseMap.remove(sparseMap, 1)
+      expect(SparseMap.get(sparseMap, 0)).toBe("a")
+      expect(SparseMap.get(sparseMap, 1)).toBe(undefined)
+      expect(SparseMap.get(sparseMap, 2)).toBe("c")
+      expect(sparseMap.size).toBe(2)
+    })
+  })
+
+  describe("forEach", () => {
+    it("executes a callback function with the value and key of each entry in the SparseMap", () => {
+      const data: [number, string][] = [
+        [0, "a"],
+        [10_100, "b"],
+        [9, "c"],
+        [23, "d"],
+        [1_000_000, "e"],
+        [34, "f"],
+      ]
+      const entries: [number, string][] = []
+      const sparseMap = SparseMap.make(
+        data.reduce((a, [key, value]) => {
+          a[key] = value
+          return a
+        }, [] as string[]),
+      )
+      SparseMap.forEach(sparseMap, (value, key) => entries.push([key, value]))
+      expect(entries).toEqual(data.sort(([keyA], [keyB]) => keyA - keyB))
+    })
   })
 })
-
-const arr: number[] = []
-const map = new Map()
-const smap = SparseMap.make()
-
-console.time("map insert")
-for (let i = 0; i < 2_000_000; i += 2) {
-  map.set(i, i)
-}
-console.timeEnd("map insert")
-
-console.time("smap insert")
-for (let i = 0; i < 2_000_000; i += 2) {
-  SparseMap.set(smap, i, i)
-}
-console.timeEnd("smap insert")
-
-console.time("arr insert")
-for (let i = 0; i < 2_000_000; i += 2) {
-  arr[i] = i
-}
-console.timeEnd("arr insert")
-
-console.time("map set")
-for (let i = 0; i < 2_000_000; i += 2) {
-  map.set(i, 0)
-}
-console.timeEnd("map set")
-
-console.time("smap set")
-for (let i = 0; i < 2_000_000; i += 2) {
-  SparseMap.set(smap, i, 0)
-}
-console.timeEnd("smap set")
-
-console.time("map get")
-for (let i = 0; i < 2_000_000; i += 2) {
-  map.get(i)
-}
-console.timeEnd("map get")
-
-console.time("smap get")
-for (let i = 0; i < 2_000_000; i += 2) {
-  SparseMap.get(smap, i)
-}
-console.timeEnd("smap get")
-
-console.time("map iter")
-for (let i = 0; i < 10; i += 2) {
-  map.forEach((value, key) => {})
-}
-console.timeEnd("map iter")
-
-console.time("smap iter")
-for (let i = 0; i < 10; i += 2) {
-  SparseMap.forEach(smap, (value, key) => {})
-}
-console.timeEnd("smap iter")
-
-console.time("arr iter")
-for (let i = 0; i < 10; i += 2) {
-  arr.forEach((value, key) => {})
-}
-console.timeEnd("arr iter")
-
-console.time("map delete")
-for (let i = 0; i < 2_000_000; i += 2) {
-  map.delete(i)
-}
-console.timeEnd("map delete")
-
-console.time("smap delete")
-for (let i = 0; i < 2_000_000; i += 2) {
-  SparseMap.remove(smap, i)
-}
-console.timeEnd("smap delete")

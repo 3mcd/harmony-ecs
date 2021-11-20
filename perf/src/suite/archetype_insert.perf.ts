@@ -1,5 +1,4 @@
-import * as Harmony from "../../../lib/src"
-import { Schema, Entity, World } from "../../../lib/src"
+import { Entity, Schema, World } from "../../../lib/src"
 import { Table } from "../../../lib/src/archetype"
 import { makePerfOnce } from "../perf"
 
@@ -67,5 +66,3 @@ console.log(
 )
 
 export const run = makePerfOnce(() => {})
-;(globalThis as any).world = world!
-;(globalThis as any).Harmony = Harmony

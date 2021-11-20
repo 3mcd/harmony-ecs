@@ -70,7 +70,6 @@ export type QueryRecord<$Type extends Type.Type> = [
  * ```
  */
 export type Query<$Type extends Type.Type = Type.Type> = QueryRecord<$Type>[]
-
 /**
  * A function that is executed when an entity is considered by a query. Returning
  * false will exclude the entity from the query results.
