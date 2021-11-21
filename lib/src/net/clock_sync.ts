@@ -1,25 +1,35 @@
 import * as Debug from "../debug"
 
+type ClockSyncSampleQueue = {
+  maxLength: number
+  values: number[]
+  indices: number[]
+}
+
 export type ClockSync = {
-  neededSampleCount: number
-  assumedOutlierRate: number
-  serverSecondsOffset?: number
-  samplesOrderedByRank: number[]
-  sampleRankQueue: number[]
-  sampleValueQueue: number[]
   maxTolerableDeviation: number
+  samples: ClockSyncSampleQueue
+  samplesToDiscardPerExtreme: number
+  serverSecondsOffset?: number
 }
 
-export type ClockSyncReady = Omit<ClockSync, "serverSecondsOffset"> & {
-  serverSecondsOffset: number
+function makeSampleQueue(maxLength: number): ClockSyncSampleQueue {
+  const values: number[] = []
+  const indices: number[] = []
+  return {
+    maxLength,
+    values,
+    indices,
+  }
 }
 
-function getTargetSortedIndex(array: number[], value: number) {
+function getTargetSortedIndex(sortedNumberQueue: ClockSyncSampleQueue, value: number) {
+  const { values } = sortedNumberQueue
   let low = 0
-  let high = array.length
+  let high = values.length
   while (low < high) {
     const mid = (low + high) >>> 1
-    if (array[mid]! < value) {
+    if (values[mid]! < value) {
       low = mid + 1
     } else {
       high = mid
@@ -28,20 +38,46 @@ function getTargetSortedIndex(array: number[], value: number) {
   return low
 }
 
+export function enqueue(sortedNumberQueue: ClockSyncSampleQueue, value: number) {
+  const { indices, values } = sortedNumberQueue
+  const index = getTargetSortedIndex(sortedNumberQueue, value)
+  for (let i = values.length; i > index; i--) {
+    values[i] = values[i - 1]!
+  }
+  for (let i = 0; i < indices.length; i++) {
+    if (indices[i]! >= index) indices[i]++
+  }
+  values[index] = value
+  if (indices.unshift(index) > sortedNumberQueue.maxLength) {
+    const index = indices.pop()!
+    for (let i = 0; i < indices.length; i++) {
+      if (indices[i]! >= index) indices[i]--
+    }
+    const end = values.length - 1
+    for (let i = index; i < end; i++) {
+      values[i] = values[i + 1]!
+    }
+    values.pop()
+  }
+}
+
+export type ClockSyncReady = Omit<ClockSync, "serverSecondsOffset"> & {
+  serverSecondsOffset: number
+}
+
 function calcRollingMeanOffsetSeconds(clockSync: ClockSync) {
+  const { samplesToDiscardPerExtreme, samples: sampleQueue } = clockSync
+  const end = clockSync.samples.values.length - samplesToDiscardPerExtreme
   let totalOffsetSum = 0
-  const start = calcSamplesToDiscardPerExtreme(clockSync)
-  const end = clockSync.samplesOrderedByRank.length - start
-  for (let i = start; i < end; i++) {
-    const sample = clockSync.samplesOrderedByRank[i]
+  for (let i = samplesToDiscardPerExtreme; i < end; i++) {
+    const sample = sampleQueue.values[i]
     Debug.invariant(sample !== undefined)
     totalOffsetSum += sample
   }
-
-  return totalOffsetSum / (end - start)
+  return totalOffsetSum / (end - samplesToDiscardPerExtreme)
 }
 
-function isReady(clockSync: ClockSync): clockSync is ClockSyncReady {
+export function isReady(clockSync: ClockSync): clockSync is ClockSyncReady {
   return clockSync.serverSecondsOffset !== undefined
 }
 
@@ -52,35 +88,23 @@ function hasDesynced(clockSync: ClockSyncReady, rollingMeanOffsetSeconds: number
   )
 }
 
-function calcSamplesToDiscardPerExtreme(clockSync: ClockSync) {
-  return Math.ceil(
-    Math.max((clockSync.neededSampleCount * clockSync.assumedOutlierRate) / 2, 1),
-  )
+function calcSamplesToDiscardPerExtreme(
+  neededSampleCount: number,
+  assumedOutlierRate: number,
+) {
+  return Math.ceil(Math.max((neededSampleCount * assumedOutlierRate) / 2, 1))
 }
 
 export function addSample(clockSync: ClockSync, measuredSecondsOffset: number) {
-  // find the target index in the sorted array of offsets
-  const rank = getTargetSortedIndex(clockSync.samplesOrderedByRank, measuredSecondsOffset)
-  // insert the new offset sample
-  clockSync.sampleRankQueue.unshift(rank)
-  clockSync.sampleValueQueue.unshift(measuredSecondsOffset)
-  clockSync.samplesOrderedByRank.splice(rank, 0, measuredSecondsOffset)
-
-  Debug.invariant(clockSync.samplesOrderedByRank.length <= calcNeededSamples(clockSync))
-  if (clockSync.samplesOrderedByRank.length >= calcNeededSamples(clockSync)) {
+  // insert the offset sample
+  enqueue(clockSync.samples, measuredSecondsOffset)
+  // update server offset by taking the average of the samples ignoring outliers
+  if (clockSync.samples.values.length === clockSync.samples.maxLength) {
     const rollingMeanOffsetSeconds = calcRollingMeanOffsetSeconds(clockSync)
-    // @ts-ignore
     if (!isReady(clockSync) || hasDesynced(clockSync, rollingMeanOffsetSeconds)) {
       clockSync.serverSecondsOffset = rollingMeanOffsetSeconds
     }
-
-    clockSync.sampleValueQueue.pop()
-    clockSync.samplesOrderedByRank.splice(clockSync.sampleRankQueue.pop()!, 1)
   }
-}
-
-export function calcNeededSamples(clockSync: ClockSync) {
-  return clockSync.neededSampleCount + calcSamplesToDiscardPerExtreme(clockSync) * 2
 }
 
 export function make(
@@ -88,12 +112,15 @@ export function make(
   assumedOutlierRate: number,
   maxTolerableDeviation: number,
 ): ClockSync {
-  return {
+  Debug.assert(neededSampleCount > 0)
+  Debug.assert(assumedOutlierRate >= 0)
+  const samplesToDiscardPerExtreme = calcSamplesToDiscardPerExtreme(
     neededSampleCount,
     assumedOutlierRate,
-    samplesOrderedByRank: [],
-    sampleRankQueue: [],
-    sampleValueQueue: [],
+  )
+  return {
+    samples: makeSampleQueue(neededSampleCount + samplesToDiscardPerExtreme),
     maxTolerableDeviation,
+    samplesToDiscardPerExtreme,
   }
 }

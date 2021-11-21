@@ -11,8 +11,6 @@ describe("ClockSync", () => {
         assumedOutlierRate,
         maxTolerableDeviation,
       )
-      expect(clockSync.neededSampleCount).toBe(neededSampleCount)
-      expect(clockSync.assumedOutlierRate).toBe(assumedOutlierRate)
       expect(clockSync.maxTolerableDeviation).toBe(maxTolerableDeviation)
     })
   })
@@ -23,7 +21,7 @@ describe("ClockSync", () => {
       const neededSampleCount = 4
       const assumedOutlierRate = 1
       const clockSync = ClockSync.make(neededSampleCount, assumedOutlierRate, 0.2)
-      const totalNeededSampleCount = ClockSync.calcNeededSamples(clockSync)
+      const totalNeededSampleCount = clockSync.samples.maxLength
       for (let i = 0; i < totalNeededSampleCount; i++) {
         ClockSync.addSample(clockSync, clockDesync)
       }
@@ -39,7 +37,7 @@ describe("ClockSync", () => {
         assumedOutlierRate,
         maxTolerableDeviation,
       )
-      const totalNeededSampleCount = ClockSync.calcNeededSamples(clockSync)
+      const totalNeededSampleCount = clockSync.samples.maxLength
       for (let i = 0; i < totalNeededSampleCount; i++) {
         ClockSync.addSample(clockSync, initialClockDesync)
       }
@@ -61,7 +59,7 @@ describe("ClockSync", () => {
         assumedOutlierRate,
         maxTolerableDeviation,
       )
-      const totalNeededSampleCount = ClockSync.calcNeededSamples(clockSync)
+      const totalNeededSampleCount = clockSync.samples.maxLength
       for (let i = 0; i < totalNeededSampleCount; i++) {
         ClockSync.addSample(clockSync, initialClockDesync)
       }
@@ -72,12 +70,84 @@ describe("ClockSync", () => {
         initialClockDesync + maxTolerableDeviation * 10,
       )
     })
-    it("uses the assumed outlier rate to ignore outliers", () => {})
-    it("throws if the number of samples to discard is greater than the number of added samples", () => {})
-    it("incorporates outlier samples when outlier count is greater than assumed outlier rate", () => {})
+    it("uses the assumed outlier rate to ignore outliers", () => {
+      const initialClockDesync = 1
+      const neededSampleCount = 10
+      const assumedOutlierRate = 1
+      const maxTolerableDeviation = 0.01
+      const clockSync = ClockSync.make(
+        neededSampleCount,
+        assumedOutlierRate,
+        maxTolerableDeviation,
+      )
+      const totalNeededSampleCount = clockSync.samples.maxLength
+      for (let i = 0; i < totalNeededSampleCount; i++) {
+        ClockSync.addSample(clockSync, initialClockDesync)
+      }
+      for (let i = 0; i < assumedOutlierRate * 2; i++) {
+        ClockSync.addSample(
+          clockSync,
+          initialClockDesync + maxTolerableDeviation + Number.EPSILON,
+        )
+      }
+      expect(clockSync.serverSecondsOffset).toBe(initialClockDesync)
+    })
+    it("incorporates outlier samples when outlier count is greater than assumed outlier rate", () => {
+      const initialClockDesync = 1
+      const neededSampleCount = 10
+      const assumedOutlierRate = 1
+      const maxTolerableDeviation = 0.01
+      const clockSync = ClockSync.make(
+        neededSampleCount,
+        assumedOutlierRate,
+        maxTolerableDeviation,
+      )
+      const totalNeededSampleCount = clockSync.samples.maxLength
+      for (let i = 0; i < totalNeededSampleCount; i++) {
+        ClockSync.addSample(clockSync, initialClockDesync)
+      }
+      for (let i = 0; i < assumedOutlierRate * 2 * neededSampleCount; i++) {
+        ClockSync.addSample(
+          clockSync,
+          initialClockDesync + (maxTolerableDeviation + Number.EPSILON),
+        )
+      }
+      expect(clockSync.serverSecondsOffset).toBeGreaterThan(initialClockDesync)
+    })
   })
 
   describe("isReady", () => {
-    it("returns false if needed sample count not met", () => {})
+    it("returns false if needed sample count not met", () => {
+      const initialClockDesync = 0
+      const neededSampleCount = 7
+      const assumedOutlierRate = 1
+      const maxTolerableDeviation = 0.01
+      const clockSync = ClockSync.make(
+        neededSampleCount,
+        assumedOutlierRate,
+        maxTolerableDeviation,
+      )
+      const totalNeededSampleCount = clockSync.samples.maxLength
+      for (let i = 0; i < totalNeededSampleCount - 1; i++) {
+        ClockSync.addSample(clockSync, initialClockDesync)
+      }
+      expect(ClockSync.isReady(clockSync)).toBe(false)
+    })
+    it("returns true if needed sample count met", () => {
+      const initialClockDesync = 0
+      const neededSampleCount = 7
+      const assumedOutlierRate = 1
+      const maxTolerableDeviation = 0.01
+      const clockSync = ClockSync.make(
+        neededSampleCount,
+        assumedOutlierRate,
+        maxTolerableDeviation,
+      )
+      const totalNeededSampleCount = clockSync.samples.maxLength
+      for (let i = 0; i < totalNeededSampleCount; i++) {
+        ClockSync.addSample(clockSync, initialClockDesync)
+      }
+      expect(ClockSync.isReady(clockSync)).toBe(true)
+    })
   })
 })
