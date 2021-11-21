@@ -1,16 +1,32 @@
 import * as Debug from "../debug"
 
+/**
+ * `ClockSyncSampleQueue` is a FIFO buffer of server offset samples,
+ * continuously sorted by magnitude. It is comprised of sorted array of clock
+ * offset samples (numbers), and an associated indices array that catalogues
+ * the order in which each sample was enqueued. The enqueue algorithm is O(n),
+ * optimizing for memory over speed, in that zero intermidate objects are
+ * created when enqueuing new values.
+ */
 type ClockSyncSampleQueue = {
   maxLength: number
   values: number[]
   indices: number[]
 }
 
+/**
+ * `ClockSync` maintains a queue of offset samples, continuously calculating an
+ * average offset while new samples are enqueued.
+ */
 export type ClockSync = {
   maxTolerableDeviation: number
   samples: ClockSyncSampleQueue
   samplesToDiscardPerExtreme: number
   serverSecondsOffset?: number
+}
+
+export type ClockSyncReady = Omit<ClockSync, "serverSecondsOffset"> & {
+  serverSecondsOffset: number
 }
 
 function makeSampleQueue(maxLength: number): ClockSyncSampleQueue {
@@ -23,8 +39,8 @@ function makeSampleQueue(maxLength: number): ClockSyncSampleQueue {
   }
 }
 
-function getTargetSortedIndex(sortedNumberQueue: ClockSyncSampleQueue, value: number) {
-  const { values } = sortedNumberQueue
+function getTargetSortedIndex(samples: ClockSyncSampleQueue, value: number) {
+  const { values } = samples
   let low = 0
   let high = values.length
   while (low < high) {
@@ -38,9 +54,9 @@ function getTargetSortedIndex(sortedNumberQueue: ClockSyncSampleQueue, value: nu
   return low
 }
 
-export function enqueue(sortedNumberQueue: ClockSyncSampleQueue, value: number) {
-  const { indices, values } = sortedNumberQueue
-  const index = getTargetSortedIndex(sortedNumberQueue, value)
+function enqueue(samples: ClockSyncSampleQueue, value: number) {
+  const { indices, values } = samples
+  const index = getTargetSortedIndex(samples, value)
   for (let i = values.length; i > index; i--) {
     values[i] = values[i - 1]!
   }
@@ -48,7 +64,7 @@ export function enqueue(sortedNumberQueue: ClockSyncSampleQueue, value: number) 
     if (indices[i]! >= index) indices[i]++
   }
   values[index] = value
-  if (indices.unshift(index) > sortedNumberQueue.maxLength) {
+  if (indices.unshift(index) > samples.maxLength) {
     const index = indices.pop()!
     for (let i = 0; i < indices.length; i++) {
       if (indices[i]! >= index) indices[i]--
@@ -59,10 +75,6 @@ export function enqueue(sortedNumberQueue: ClockSyncSampleQueue, value: number) 
     }
     values.pop()
   }
-}
-
-export type ClockSyncReady = Omit<ClockSync, "serverSecondsOffset"> & {
-  serverSecondsOffset: number
 }
 
 function calcRollingMeanOffsetSeconds(clockSync: ClockSync) {
@@ -77,10 +89,6 @@ function calcRollingMeanOffsetSeconds(clockSync: ClockSync) {
   return totalOffsetSum / (end - samplesToDiscardPerExtreme)
 }
 
-export function isReady(clockSync: ClockSync): clockSync is ClockSyncReady {
-  return clockSync.serverSecondsOffset !== undefined
-}
-
 function hasDesynced(clockSync: ClockSyncReady, rollingMeanOffsetSeconds: number) {
   return (
     Math.abs(rollingMeanOffsetSeconds - clockSync.serverSecondsOffset) >
@@ -93,6 +101,10 @@ function calcSamplesToDiscardPerExtreme(
   assumedOutlierRate: number,
 ) {
   return Math.ceil(Math.max((neededSampleCount * assumedOutlierRate) / 2, 1))
+}
+
+export function isReady(clockSync: ClockSync): clockSync is ClockSyncReady {
+  return clockSync.serverSecondsOffset !== undefined
 }
 
 export function addSample(clockSync: ClockSync, measuredSecondsOffset: number) {
