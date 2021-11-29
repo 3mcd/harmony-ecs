@@ -54,7 +54,7 @@ describe("add_remove", () => {
       }
     }
 
-    // console.log(world.rootTable.edgesSet[A]!.edgesSet[B])
+    // console.log(world.rootArchetype.edgesSet[A]!.edgesSet[B])
 
     let qaCountPostReset = 0
     for (let i = 0; i < qa.length; i++) {

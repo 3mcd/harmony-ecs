@@ -1,10 +1,7 @@
 /**
  * A callback function passed to `SparseMap.forEach`
  */
-export type SparseMapIteratee<$Value, $Key extends number> = (
-  value: $Value,
-  key: $Key,
-) => void
+export type Iteratee<$Value, $Key extends number> = (value: $Value, key: $Key) => void
 
 /**
  * A map that references values using unsigned integers. Uses a packed array in
@@ -117,7 +114,7 @@ export function clear(map: Struct) {
  */
 export function forEach<$Value, $Key extends number>(
   map: Struct<$Value, $Key>,
-  iteratee: SparseMapIteratee<$Value, $Key>,
+  iteratee: Iteratee<$Value, $Key>,
 ) {
   for (let i = 0; i < map.size; i++) {
     const k = map.keys[i]!

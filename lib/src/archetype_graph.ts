@@ -58,7 +58,7 @@ function emitTable(archetype: Archetype.Struct) {
 }
 
 export function find(world: World.Struct, type: Type.Struct) {
-  let left = world.rootTable
+  let left = world.rootArchetype
   for (let i = 0; i < type.length; i++) {
     const id = type[i]
     Debug.invariant(id !== undefined)
@@ -115,7 +115,7 @@ function ensurePath(
     const type = Type.add(node.type, id)
     let right = find(world, type)
     if (right === undefined) {
-      right = makeArchetypeEnsurePath(world, world.rootTable, type, emit)
+      right = makeArchetypeEnsurePath(world, world.rootArchetype, type, emit)
     }
     makeEdge(node, right, id)
     node = right
@@ -163,7 +163,10 @@ function connectArchetypeTraverse(
     ensurePath(world, visiting, inserted, emit)
     return
   }
-  if (Type.isSupersetOf(inserted.type, visiting.type) && visiting !== world.rootTable) {
+  if (
+    Type.isSupersetOf(inserted.type, visiting.type) &&
+    visiting !== world.rootArchetype
+  ) {
     ensurePath(world, inserted, visiting, emit)
   }
   visiting.edgesSet.forEach(function connectNextArchetype(next) {
@@ -182,7 +185,7 @@ function connectArchetype(
   inserted: Archetype.Struct,
   emit: Archetype.Struct[],
 ) {
-  world.rootTable.edgesSet.forEach(function connectArchetypeFromBase(node) {
+  world.rootArchetype.edgesSet.forEach(function connectArchetypeFromBase(node) {
     connectArchetypeTraverse(world, node, inserted, emit)
   })
 }
@@ -218,7 +221,7 @@ function insertArchetype(
 
 export function findOrMakeArchetype(world: World.Struct, type: Type.Struct) {
   let emit: Archetype.Struct[] = []
-  const archetype = insertArchetype(world, world.rootTable, type, emit)
+  const archetype = insertArchetype(world, world.rootArchetype, type, emit)
   for (let i = 0; i < emit.length; i++) {
     emitTable(emit[i]!)
   }

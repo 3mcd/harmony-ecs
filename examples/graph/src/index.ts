@@ -43,8 +43,8 @@ function onTableInsert(archetype: Archetype.Struct) {
   archetype.edgesUnset.forEach(({ type }) => maybeMakeEdge(archetype.type, type))
 }
 
-subscribe(world.rootTable.onTableInsert, onTableInsert)
-onTableInsert(world.rootTable)
+subscribe(world.rootArchetype.onTableInsert, onTableInsert)
+onTableInsert(world.rootArchetype)
 
 let max = 0
 

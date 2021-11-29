@@ -60,9 +60,9 @@ function getUniqueArchetypes(archetype: Struct, visited = new Set<Struct>()) {
 }
 
 console.log(
-  `${getUniqueArchetypes(world!.rootTable).size} archetype insert took ${avgTime.toFixed(
-    2,
-  )}ms`,
+  `${
+    getUniqueArchetypes(world!.rootArchetype).size
+  } archetype insert took ${avgTime.toFixed(2)}ms`,
 )
 
 export const run = makePerfOnce(() => {})

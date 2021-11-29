@@ -25,7 +25,7 @@ export class EntityNotRealError extends Error {
  * discarded, but moved to the world's root archetype.
  */
 export type Struct = {
-  rootTable: Archetype.Struct
+  rootArchetype: Archetype.Struct
   entityHead: number
   entityIndex: (Archetype.Struct | undefined)[]
   schemaIndex: Schema.AnySchema[]
@@ -90,7 +90,7 @@ export function unsetEntityArchetype(world: Struct, entity: Entity.Id) {
 export function make(size: number): Struct {
   const type: Type.Struct = []
   return {
-    rootTable: Archetype.makeInner(type, []),
+    rootArchetype: Archetype.makeInner(type, []),
     entityHead: 0,
     entityIndex: [],
     schemaIndex: [],
