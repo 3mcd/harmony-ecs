@@ -15,7 +15,7 @@ export type SparseMapIteratee<$Value, $Key extends number> = (
  * SparseMap is faster than ES Maps in all cases. It is slower than sparse
  * arrays for read/write operations, but faster to iterate.
  */
-export type SparseMap<$Value = unknown, $Key extends number = number> = {
+export type Struct<$Value = unknown, $Key extends number = number> = {
   /** @readonly */
   size: number
   /** @internal */
@@ -31,7 +31,7 @@ export type SparseMap<$Value = unknown, $Key extends number = number> = {
  */
 export function make<$Value, $Key extends number = number>(
   init: ($Value | undefined)[] = [],
-): SparseMap<$Value, $Key> {
+): Struct<$Value, $Key> {
   let size = 0
   const index: (number | undefined)[] = []
   const keys: $Key[] = []
@@ -58,7 +58,7 @@ export function make<$Value, $Key extends number = number>(
  * no record exists for the given key.
  */
 export function get<$Value, $Key extends number>(
-  map: SparseMap<$Value, $Key>,
+  map: Struct<$Value, $Key>,
   key: $Key,
 ): $Value | undefined {
   return map.values[key]
@@ -68,7 +68,7 @@ export function get<$Value, $Key extends number>(
  * Add or update the value of an entry with the given key within a SparseMap.
  */
 export function set<$Value, $Key extends number>(
-  map: SparseMap<$Value, $Key>,
+  map: Struct<$Value, $Key>,
   key: $Key,
   value: $Value,
 ) {
@@ -82,7 +82,7 @@ export function set<$Value, $Key extends number>(
 /**
  * Remove an entry by key from a SparseMap.
  */
-export function remove<$Key extends number>(map: SparseMap<unknown, $Key>, key: $Key) {
+export function remove<$Key extends number>(map: Struct<unknown, $Key>, key: $Key) {
   const i = map.index[key]
   if (i === undefined) return
   const k = map.keys.pop()
@@ -98,14 +98,14 @@ export function remove<$Key extends number>(map: SparseMap<unknown, $Key>, key: 
  * Check for the existence of a value by key within a SparseMap. Returns true
  * if the SparseMap contains an entry for the provided key.
  */
-export function has(map: SparseMap, key: number) {
+export function has(map: Struct, key: number) {
   return map.index[key] !== undefined
 }
 
 /**
  * Clear all entries from a SparseMap.
  */
-export function clear(map: SparseMap) {
+export function clear(map: Struct) {
   map.keys.length = 0
   map.values.length = 0
   ;(map.index as number[]).length = 0
@@ -116,7 +116,7 @@ export function clear(map: SparseMap) {
  * Iterate a SparseMap using a iteratee function.
  */
 export function forEach<$Value, $Key extends number>(
-  map: SparseMap<$Value, $Key>,
+  map: Struct<$Value, $Key>,
   iteratee: SparseMapIteratee<$Value, $Key>,
 ) {
   for (let i = 0; i < map.size; i++) {

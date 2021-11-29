@@ -70,5 +70,5 @@ export function printPerfResults(results: PerfResults) {
   const { id, timing, iterations } = results
   console.log(id)
   console.log(`iterations ${iterations}`)
-  console.table(mapObject(timing, prettyMs))
+  console.log(mapObject(timing, prettyMs))
 }

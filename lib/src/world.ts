@@ -1,8 +1,14 @@
 import * as Archetype from "./archetype"
 import * as Debug from "./debug"
 import * as Entity from "./entity"
-import * as Model from "./model"
+import * as Schema from "./schema"
 import * as Type from "./type"
+
+export class EntityNotRealError extends Error {
+  constructor(entity: Entity.Id) {
+    super(`Entity "${entity}" is not real`)
+  }
+}
 
 /**
  * The root object of the ECS. A world maintains entity identifiers, stores
@@ -16,23 +22,23 @@ import * as Type from "./type"
  * time.
  *
  * Entities without any components (e.g. destroyed entities) are never
- * discarded, but moved to the root archetype.
+ * discarded, but moved to the world's root archetype.
  */
-export type World = {
-  rootTable: Archetype.Table
+export type Struct = {
+  rootTable: Archetype.Struct
   entityHead: number
-  entityIndex: (Archetype.Table | undefined)[]
-  schemaIndex: Model.AnySchema[]
+  entityIndex: (Archetype.Struct | undefined)[]
+  schemaIndex: Schema.AnySchema[]
   size: number
 }
 
 /** @internal */
-export function registerSchema(world: World, id: Entity.Id, schema: Model.AnySchema) {
+export function registerSchema(world: Struct, id: Entity.Id, schema: Schema.AnySchema) {
   world.schemaIndex[id] = schema
 }
 
 /** @internal */
-export function findSchemaById(world: World, id: Entity.Id) {
+export function findSchemaById(world: Struct, id: Entity.Id) {
   const schema = world.schemaIndex[id]
   Debug.invariant(
     schema !== undefined,
@@ -42,28 +48,33 @@ export function findSchemaById(world: World, id: Entity.Id) {
 }
 
 /** @internal */
-export function getEntityTable(world: World, entity: Entity.Id) {
-  const table = world.entityIndex[entity]
+export function getEntityArchetype(world: Struct, entity: Entity.Id) {
+  const archetype = world.entityIndex[entity]
   Debug.invariant(
-    table !== undefined,
-    `Failed to locate table: entity "${entity}" is not real`,
+    archetype !== undefined,
+    `Failed to locate archetype`,
+    new EntityNotRealError(entity),
   )
-  return table
+  return archetype
 }
 
 /** @internal */
-export function tryGetEntityTable(world: World, entity: Entity.Id) {
-  const table = world.entityIndex[entity]
-  return table
+export function tryGetEntityArchetype(world: Struct, entity: Entity.Id) {
+  const archetype = world.entityIndex[entity]
+  return archetype
 }
 
 /** @internal */
-export function setEntityTable(world: World, entity: Entity.Id, table: Archetype.Table) {
-  world.entityIndex[entity] = table
+export function setEntityArchetype(
+  world: Struct,
+  entity: Entity.Id,
+  archetype: Archetype.Struct,
+) {
+  world.entityIndex[entity] = archetype
 }
 
 /** @internal */
-export function unsetEntityTable(world: World, entity: Entity.Id) {
+export function unsetEntityArchetype(world: Struct, entity: Entity.Id) {
   world.entityIndex[entity] = undefined
 }
 
@@ -76,8 +87,8 @@ export function unsetEntityTable(world: World, entity: Entity.Id) {
  * const world = World.make(1e6)
  * ```
  */
-export function make(size: number): World {
-  const type: Type.Type = []
+export function make(size: number): Struct {
+  const type: Type.Struct = []
   return {
     rootTable: Archetype.makeInner(type, []),
     entityHead: 0,

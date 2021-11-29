@@ -1,9 +1,12 @@
 import { invariant } from "./debug"
-import { SchemaId } from "./model"
+import { Id } from "./schema"
 
-export type Type = ReadonlyArray<SchemaId>
+/**
+ * An array of schema ids that fully defines the component makeup of an entity.
+ */
+export type Struct = ReadonlyArray<Id>
 
-export function add(type: Type, add: SchemaId): Type {
+export function add(type: Struct, add: Id): Struct {
   invariantNormalized(type)
   const next: number[] = []
   let added = false
@@ -21,12 +24,12 @@ export function add(type: Type, add: SchemaId): Type {
   if (!added) {
     next.push(add)
   }
-  return next as unknown as Type
+  return next as unknown as Struct
 }
 
-export function and(a: Type, b: Type): Type {
+export function and(a: Struct, b: Struct): Struct {
   invariantNormalized(a)
-  let next = a.slice() as Type
+  let next = a.slice() as Struct
   for (let i = 0; i < b.length; i++) {
     const id = b[i]
     invariant(id !== undefined)
@@ -35,9 +38,9 @@ export function and(a: Type, b: Type): Type {
   return next
 }
 
-export function xor(a: Type, b: Type): Type {
+export function xor(a: Struct, b: Struct): Struct {
   invariantNormalized(a)
-  let next = a.slice() as Type
+  let next = a.slice() as Struct
   for (let i = 0; i < b.length; i++) {
     const id = b[i]
     invariant(id !== undefined)
@@ -46,7 +49,7 @@ export function xor(a: Type, b: Type): Type {
   return next
 }
 
-export function remove(type: Type, remove: SchemaId): Type {
+export function remove(type: Struct, remove: Id): Struct {
   invariantNormalized(type)
   const next: number[] = []
   for (let i = 0; i < type.length; i++) {
@@ -56,14 +59,14 @@ export function remove(type: Type, remove: SchemaId): Type {
       next.push(e)
     }
   }
-  return next as unknown as Type
+  return next as unknown as Struct
 }
 
-export function normalize(type: Type) {
+export function normalize(type: Struct) {
   return Object.freeze(type.slice().sort((a, b) => a - b))
 }
 
-export function invariantNormalized(type: Type) {
+export function invariantNormalized(type: Struct) {
   for (let i = 0; i < type.length - 1; i++) {
     const a = type[i]
     const b = type[i + 1]
@@ -75,7 +78,7 @@ export function invariantNormalized(type: Type) {
   }
 }
 
-export function isEqual(outer: Type, inner: Type) {
+export function isEqual(outer: Struct, inner: Struct) {
   if (outer.length !== inner.length) {
     return false
   }
@@ -85,7 +88,7 @@ export function isEqual(outer: Type, inner: Type) {
   return true
 }
 
-export function isSupersetOf(outer: Type, inner: Type) {
+export function isSupersetOf(outer: Struct, inner: Struct) {
   invariantNormalized(outer)
   invariantNormalized(inner)
   let o = 0
@@ -110,13 +113,13 @@ export function isSupersetOf(outer: Type, inner: Type) {
   return i === inner.length
 }
 
-export function invariantIsSupersetOf(outer: Type, inner: Type) {
+export function invariantIsSupersetOf(outer: Struct, inner: Struct) {
   if (!isSupersetOf(outer, inner)) {
     throw new RangeError("type is not superset")
   }
 }
 
-export function maybeSupersetOf(outer: Type, inner: Type) {
+export function maybeSupersetOf(outer: Struct, inner: Struct) {
   invariantNormalized(outer)
   invariantNormalized(inner)
   let o = 0
@@ -141,11 +144,11 @@ export function maybeSupersetOf(outer: Type, inner: Type) {
   return true
 }
 
-export function getIdsBetween(right: Type, left: Type) {
+export function getIdsBetween(right: Struct, left: Struct) {
   invariantIsSupersetOf(right, left)
   let o = 0
   let i = 0
-  const path: SchemaId[] = []
+  const path: Id[] = []
   if (right.length - left.length === 1) {
     let j = 0
     let length = right.length

@@ -1,19 +1,19 @@
 import * as Archetype from "./archetype"
 import * as Debug from "./debug"
-import * as Model from "./model"
+import * as Schema from "./schema"
 import * as Signal from "./signal"
 import * as Type from "./type"
 import * as World from "./world"
 
 export function traverseLeft(
-  table: Archetype.Table,
-  iteratee: (table: Archetype.Table) => unknown,
-  visited = new Set<Archetype.Table>(),
+  archetype: Archetype.Struct,
+  iteratee: (archetype: Archetype.Struct) => unknown,
+  visited = new Set<Archetype.Struct>(),
 ) {
-  const stack: (Archetype.Table | number)[] = [0, table]
+  const stack: (Archetype.Struct | number)[] = [0, archetype]
   let i = stack.length
   while (i > 0) {
-    const node = stack[--i] as Archetype.Table
+    const node = stack[--i] as Archetype.Struct
     const index = stack[--i] as number
     if (index < node.edgesUnset.length - 1) {
       stack[i++] = index + 1
@@ -29,15 +29,15 @@ export function traverseLeft(
   }
 }
 
-export function traverseRight(
-  table: Archetype.Table,
-  iteratee: (table: Archetype.Table) => unknown,
-  visited = new Set<Archetype.Table>(),
+export function traverse(
+  archetype: Archetype.Struct,
+  iteratee: (archetype: Archetype.Struct) => unknown,
+  visited = new Set<Archetype.Struct>(),
 ) {
-  const stack: (Archetype.Table | number)[] = [0, table]
+  const stack: (Archetype.Struct | number)[] = [0, archetype]
   let i = stack.length
   while (i > 0) {
-    const node = stack[--i] as Archetype.Table
+    const node = stack[--i] as Archetype.Struct
     const index = stack[--i] as number
     if (index < node.edgesSet.length - 1) {
       stack[i++] = index + 1
@@ -53,11 +53,11 @@ export function traverseRight(
   }
 }
 
-function emitTable(archetype: Archetype.Table) {
-  traverseLeft(archetype, a => Signal.dispatch(a.onTableInsert, archetype))
+function emitTable(archetype: Archetype.Struct) {
+  traverseLeft(archetype, t => Signal.dispatch(t.onTableInsert, archetype))
 }
 
-export function find(world: World.World, type: Type.Type) {
+export function find(world: World.Struct, type: Type.Struct) {
   let left = world.rootTable
   for (let i = 0; i < type.length; i++) {
     const id = type[i]
@@ -71,16 +71,16 @@ export function find(world: World.World, type: Type.Type) {
   return left
 }
 
-function makeEdge(left: Archetype.Table, right: Archetype.Table, id: Model.SchemaId) {
+function makeEdge(left: Archetype.Struct, right: Archetype.Struct, id: Schema.Id) {
   left.edgesSet[id] = right
   right.edgesUnset[id] = left
 }
 
 function makeArchetypeEnsurePath(
-  world: World.World,
-  root: Archetype.Table,
-  type: Type.Type,
-  emit: Archetype.Table[],
+  world: World.Struct,
+  root: Archetype.Struct,
+  type: Type.Struct,
+  emit: Archetype.Struct[],
 ) {
   let left = root
   for (let i = 0; i < type.length; i++) {
@@ -101,10 +101,10 @@ function makeArchetypeEnsurePath(
 }
 
 function ensurePath(
-  world: World.World,
-  right: Archetype.Table,
-  left: Archetype.Table,
-  emit: Archetype.Table[],
+  world: World.Struct,
+  right: Archetype.Struct,
+  left: Archetype.Struct,
+  emit: Archetype.Struct[],
 ) {
   if (hasPath(left, right)) return
   const ids = Type.getIdsBetween(right.type, left.type)
@@ -123,7 +123,7 @@ function ensurePath(
   return node
 }
 
-function hasPathTraverse(left: Archetype.Table, ids: number[]) {
+function hasPathTraverse(left: Archetype.Struct, ids: number[]) {
   for (let i = 0; i < ids.length; i++) {
     const id = ids[i]
     Debug.invariant(id !== undefined)
@@ -146,16 +146,16 @@ function hasPathTraverse(left: Archetype.Table, ids: number[]) {
   return false
 }
 
-function hasPath(left: Archetype.Table, right: Archetype.Table) {
+function hasPath(left: Archetype.Struct, right: Archetype.Struct) {
   const ids = Type.getIdsBetween(right.type, left.type)
   return hasPathTraverse(left, ids)
 }
 
 function connectArchetypeTraverse(
-  world: World.World,
-  visiting: Archetype.Table,
-  inserted: Archetype.Table,
-  emit: Archetype.Table[],
+  world: World.Struct,
+  visiting: Archetype.Struct,
+  inserted: Archetype.Struct,
+  emit: Archetype.Struct[],
   visited = new Set(emit),
 ) {
   visited.add(visiting)
@@ -178,20 +178,20 @@ function connectArchetypeTraverse(
 }
 
 function connectArchetype(
-  world: World.World,
-  inserted: Archetype.Table,
-  emit: Archetype.Table[],
+  world: World.Struct,
+  inserted: Archetype.Struct,
+  emit: Archetype.Struct[],
 ) {
   world.rootTable.edgesSet.forEach(function connectArchetypeFromBase(node) {
     connectArchetypeTraverse(world, node, inserted, emit)
   })
 }
 
-function insert(
-  world: World.World,
-  root: Archetype.Table,
-  type: Type.Type,
-  emit: Archetype.Table[],
+function insertArchetype(
+  world: World.Struct,
+  root: Archetype.Struct,
+  type: Type.Struct,
+  emit: Archetype.Struct[],
 ) {
   let left = root
   for (let i = 0; i < type.length; i++) {
@@ -216,9 +216,9 @@ function insert(
   return left
 }
 
-export function findOrMake(world: World.World, type: Type.Type) {
-  let emit: Archetype.Table[] = []
-  const archetype = insert(world, world.rootTable, type, emit)
+export function findOrMakeArchetype(world: World.Struct, type: Type.Struct) {
+  let emit: Archetype.Struct[] = []
+  const archetype = insertArchetype(world, world.rootTable, type, emit)
   for (let i = 0; i < emit.length; i++) {
     emitTable(emit[i]!)
   }

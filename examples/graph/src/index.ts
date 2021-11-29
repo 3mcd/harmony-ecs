@@ -1,19 +1,19 @@
-import { Table } from "../../../lib/src/archetype"
+import * as Archetype from "../../../lib/src/archetype"
 import { Edge, Network, Node } from "vis-network"
 import { DataSet } from "vis-data"
 import { Entity, Schema, World } from "../../../lib/src"
-import { Type } from "../../../lib/src/type"
+import * as Type from "../../../lib/src/type"
 
 function getColor(value: number) {
   return ["hsl(", ((1 - value) * 120).toString(10), ",100%,50%)"].join("")
 }
 
-function makeTypeId(type: Type) {
+function makeTypeId(type: Type.Struct) {
   return type.join(",")
 }
 
 const $log = document.getElementById("log")!
-const $type = document.getElementById("type") as HTMLInputElement
+const $Signature = document.getElementById("type") as HTMLInputElement
 const $network = document.getElementById("network")!
 const $insert = document.getElementById("insert")!
 
@@ -25,7 +25,7 @@ const schemas = Array(10)
   .map(() => Schema.make(world, {}))
 const edgeIds = new Set<string>()
 
-function maybeMakeEdge(a: Type, b: Type) {
+function maybeMakeEdge(a: Type.Struct, b: Type.Struct) {
   const from = makeTypeId(a)
   const to = makeTypeId(b)
   const id = a.length > b.length ? `${to}–${from}` : `${from}–${to}`
@@ -36,11 +36,11 @@ function maybeMakeEdge(a: Type, b: Type) {
   edges.add({ id, from, to })
 }
 
-function onTableInsert(table: Table) {
-  const id = makeTypeId(table.type)
-  nodes.add({ id: id, label: `(${id})`, count: 0, level: table.type.length })
-  table.edgesSet.forEach(({ type }) => maybeMakeEdge(table.type, type))
-  table.edgesUnset.forEach(({ type }) => maybeMakeEdge(table.type, type))
+function onTableInsert(archetype: Archetype.Struct) {
+  const id = makeTypeId(archetype.type)
+  nodes.add({ id: id, label: `(${id})`, count: 0, level: archetype.type.length })
+  archetype.edgesSet.forEach(({ type }) => maybeMakeEdge(archetype.type, type))
+  archetype.edgesUnset.forEach(({ type }) => maybeMakeEdge(archetype.type, type))
 }
 
 subscribe(world.rootTable.onTableInsert, onTableInsert)
@@ -49,7 +49,7 @@ onTableInsert(world.rootTable)
 let max = 0
 
 function onInsertEntity() {
-  const type = Array.from($type.value.split(/[\s,]+/).map(Number))
+  const type = Array.from($Signature.value.split(/[\s,]+/).map(Number))
     .sort((a, b) => a - b)
     .map(id => schemas[id]!)
   const id = makeTypeId(type)
@@ -67,10 +67,10 @@ function onInsertEntity() {
     }),
   )
   $log.textContent += `${id}\n`
-  $type.value = ""
+  $Signature.value = ""
 }
 
-$type.addEventListener("keydown", e => {
+$Signature.addEventListener("keydown", e => {
   if (e.key === "Enter") {
     onInsertEntity()
   }

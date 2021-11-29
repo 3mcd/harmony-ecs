@@ -16,7 +16,7 @@ export * as Query from "./query"
 /**
  * A module used to create **schema**—component templates.
  */
-export * as Schema from "./model"
+export * as Schema from "./schema"
 /**
  * A small, stringless, strongly-typed event system.
  */
@@ -27,7 +27,7 @@ export * as Signal from "./signal"
 export * as SparseMap from "./sparse_map"
 /**
  * A module used to create, combine, and examine **types**—entity component
- * signatures.
+ * types.
  */
 export * as Type from "./type"
 /**

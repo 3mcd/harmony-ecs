@@ -2,133 +2,133 @@ import * as Component from "./component"
 import * as Debug from "./debug"
 import * as Entity from "./entity"
 import * as Format from "./format"
-import * as Model from "./model"
+import * as Schema from "./schema"
 import * as Signal from "./signal"
 import * as Type from "./type"
 import * as Types from "./types"
 import * as World from "./world"
+import * as ComponentSet from "./component_set"
 
-export type BinaryData<$Shape extends Model.Shape<Model.AnyBinarySchema>> =
+export type BinaryData<$Shape extends Schema.Shape<Schema.AnyBinarySchema>> =
   $Shape extends Format.Format ? number : { [K in keyof $Shape]: number }
 
-export type NativeData<$Shape extends Model.Shape<Model.AnyNativeSchema>> =
+export type NativeData<$Shape extends Schema.Shape<Schema.AnyNativeSchema>> =
   $Shape extends Format.Format
     ? number
     : {
         [K in keyof $Shape]: $Shape[K] extends Format.Format
           ? number
-          : $Shape[K] extends Model.Shape<Model.AnyNativeSchema>
+          : $Shape[K] extends Schema.Shape<Schema.AnyNativeSchema>
           ? NativeData<$Shape[K]>
           : never
       }
 
-export type DataOfShape<$Shape extends Model.Shape<Model.AnySchema>> =
-  $Shape extends Model.Shape<Model.AnyBinarySchema>
+export type DataOfShape<$Shape extends Schema.Shape<Schema.AnySchema>> =
+  $Shape extends Schema.Shape<Schema.AnyBinarySchema>
     ? BinaryData<$Shape>
-    : $Shape extends Model.Shape<Model.AnyNativeSchema>
+    : $Shape extends Schema.Shape<Schema.AnyNativeSchema>
     ? NativeData<$Shape>
     : never
 
-export type Data<$SchemaId extends Model.SchemaId> = $SchemaId extends Model.SchemaId<
-  infer $Schema
->
-  ? DataOfShape<Model.Shape<$Schema>>
+export type Data<$SchemaId extends Schema.Id> = $SchemaId extends Schema.Id<infer $Schema>
+  ? DataOfShape<Schema.Shape<$Schema>>
   : never
 
 type ScalarBinaryColumn<
-  $Schema extends Model.BinaryScalarSchema = Model.BinaryScalarSchema,
+  $Schema extends Schema.BinaryScalarSchema = Schema.BinaryScalarSchema,
 > = {
-  kind: Model.SchemaKind.BinaryScalar
+  kind: Schema.SchemaKind.BinaryScalar
   schema: $Schema
-  data: Types.Construct<Model.Shape<$Schema>["binary"]>
+  data: Types.Construct<Schema.Shape<$Schema>["binary"]>
 }
 
 type ComplexBinaryColumn<
-  $Schema extends Model.BinaryStructSchema = Model.BinaryStructSchema,
+  $Schema extends Schema.BinaryStructSchema = Schema.BinaryStructSchema,
 > = {
-  kind: Model.SchemaKind.BinaryStruct
+  kind: Schema.SchemaKind.BinaryStruct
   schema: $Schema
   data: {
-    [K in keyof Model.Shape<$Schema>]: Types.Construct<Model.Shape<$Schema>[K]["binary"]>
+    [K in keyof Schema.Shape<$Schema>]: Types.Construct<
+      Schema.Shape<$Schema>[K]["binary"]
+    >
   }
 }
 
 type ScalarNativeColumn<
-  $Schema extends Model.NativeScalarSchema = Model.NativeScalarSchema,
+  $Schema extends Schema.NativeScalarSchema = Schema.NativeScalarSchema,
 > = {
-  kind: Model.SchemaKind.NativeScalar
+  kind: Schema.SchemaKind.NativeScalar
   schema: $Schema
   data: number[]
 }
 
 type ComplexNativeColumn<
-  $Schema extends Model.NativeObjectSchema = Model.NativeObjectSchema,
+  $Schema extends Schema.NativeObjectSchema = Schema.NativeObjectSchema,
 > = {
-  kind: Model.SchemaKind.NativeObject
+  kind: Schema.SchemaKind.NativeObject
   schema: $Schema
-  data: NativeData<Model.Shape<$Schema>>[]
+  data: NativeData<Schema.Shape<$Schema>>[]
 }
 
-export type ColumnOfSchema<$Schema extends Model.AnySchema> =
-  $Schema extends Model.BinaryScalarSchema
+export type ColumnOfSchema<$Schema extends Schema.AnySchema> =
+  $Schema extends Schema.BinaryScalarSchema
     ? ScalarBinaryColumn<$Schema>
-    : $Schema extends Model.BinaryStructSchema
+    : $Schema extends Schema.BinaryStructSchema
     ? ComplexBinaryColumn<$Schema>
-    : $Schema extends Model.NativeScalarSchema
+    : $Schema extends Schema.NativeScalarSchema
     ? ScalarNativeColumn<$Schema>
-    : $Schema extends Model.NativeObjectSchema
+    : $Schema extends Schema.NativeObjectSchema
     ? ComplexNativeColumn<$Schema>
     : never
 
-export type Column<$SchemaId extends Model.SchemaId = Model.SchemaId> =
-  $SchemaId extends Model.SchemaId<infer $Schema>
-    ? $Schema extends Model.BinaryScalarSchema
-      ? ScalarBinaryColumn<$Schema>
-      : $Schema extends Model.BinaryStructSchema
-      ? ComplexBinaryColumn<$Schema>
-      : $Schema extends Model.NativeScalarSchema
-      ? ScalarNativeColumn<$Schema>
-      : $Schema extends Model.NativeObjectSchema
-      ? ComplexNativeColumn<$Schema>
-      : never
+export type Column<$SchemaId extends Schema.Id = Schema.Id> = $SchemaId extends Schema.Id<
+  infer $Schema
+>
+  ? $Schema extends Schema.BinaryScalarSchema
+    ? ScalarBinaryColumn<$Schema>
+    : $Schema extends Schema.BinaryStructSchema
+    ? ComplexBinaryColumn<$Schema>
+    : $Schema extends Schema.NativeScalarSchema
+    ? ScalarNativeColumn<$Schema>
+    : $Schema extends Schema.NativeObjectSchema
+    ? ComplexNativeColumn<$Schema>
     : never
+  : never
 
-export type Store<$Type extends Type.Type> = {
-  [K in keyof $Type]: $Type[K] extends Model.SchemaId ? Column<$Type[K]> : never
+export type Store<$Signature extends Type.Struct> = {
+  [K in keyof $Signature]: $Signature[K] extends Schema.Id ? Column<$Signature[K]> : never
 }
 
-export type Table<$Type extends Type.Type = Type.Type> = {
-  edgesSet: Table[]
-  edgesUnset: Table[]
+export type Struct<$Signature extends Type.Struct = Type.Struct> = {
+  edgesSet: Struct[]
+  edgesUnset: Struct[]
   entities: Entity.Id[]
   entityIndex: number[]
   layout: number[]
   real: boolean
-  onTableInsert: Signal.Signal<Table>
-  onRealize: Signal.Signal<void>
-  onEnter: Signal.Signal<Entity.Id[]>
-  onExit: Signal.Signal<Entity.Id[]>
-  store: Store<$Type>
-  type: $Type
+  onTableInsert: Signal.Struct<Struct>
+  onRealize: Signal.Struct<void>
+  store: Store<$Signature>
+  type: $Signature
 }
 
-export type Row<$Type extends Type.Type> = {
-  [K in keyof $Type]: $Type[K] extends Model.SchemaId ? Data<$Type[K]> : never
+export type RowData<$Signature extends Type.Struct> = {
+  [K in keyof $Signature]: $Signature[K] extends Schema.Id ? Data<$Signature[K]> : never
 }
 
 const ArrayBufferConstructor = globalThis.SharedArrayBuffer ?? globalThis.ArrayBuffer
 
-function makeColumn(schema: Model.AnySchema, size: number): Column {
+function makeColumn(schema: Schema.AnySchema, size: number): Column {
   let data: Column["data"]
   switch (schema.kind) {
-    case Model.SchemaKind.BinaryScalar: {
+    case Schema.SchemaKind.BinaryScalar: {
       const buffer = new ArrayBufferConstructor(
         size * schema.shape.binary.BYTES_PER_ELEMENT,
       )
       data = new schema.shape.binary(buffer)
       break
     }
-    case Model.SchemaKind.BinaryStruct: {
+    case Schema.SchemaKind.BinaryStruct: {
       data = Object.entries(schema.shape).reduce((a, [memberName, memberNode]) => {
         const buffer = new ArrayBufferConstructor(
           size * memberNode.binary.BYTES_PER_ELEMENT,
@@ -138,27 +138,27 @@ function makeColumn(schema: Model.AnySchema, size: number): Column {
       }, {} as { [key: string]: Types.TypedArray })
       break
     }
-    case Model.SchemaKind.NativeScalar:
-    case Model.SchemaKind.NativeObject:
+    case Schema.SchemaKind.NativeScalar:
+    case Schema.SchemaKind.NativeObject:
       data = []
       break
   }
   return { kind: schema.kind, schema, data } as Column
 }
 
-export function makeStore<$Type extends Type.Type>(
-  world: World.World,
-  type: $Type,
-): Store<$Type> {
+export function makeStore<$Signature extends Type.Struct>(
+  world: World.Struct,
+  type: $Signature,
+): Store<$Signature> {
   return type.map(id =>
     makeColumn(World.findSchemaById(world, id), world.size),
-  ) as unknown as Store<$Type>
+  ) as unknown as Store<$Signature>
 }
 
-export function makeInner<$Type extends Type.Type>(
-  type: $Type,
-  store: Store<$Type>,
-): Table<$Type> {
+export function makeInner<$Signature extends Type.Struct>(
+  type: $Signature,
+  store: Store<$Signature>,
+): Struct<$Signature> {
   Type.invariantNormalized(type)
   const layout: number[] = []
   for (let i = 0; i < type.length; i++) {
@@ -175,46 +175,48 @@ export function makeInner<$Type extends Type.Type>(
     real: false,
     onTableInsert: Signal.make(),
     onRealize: Signal.make(),
-    onEnter: Signal.make(),
-    onExit: Signal.make(),
     store,
     type,
   }
 }
 
-export function make<$Type extends Type.Type>(
-  world: World.World,
-  type: $Type,
-): Table<$Type> {
+export function make<$Signature extends Type.Struct>(
+  world: World.Struct,
+  type: $Signature,
+): Struct<$Signature> {
   const store = makeStore(world, type)
   return makeInner(type, store)
 }
 
-export function ensureReal(archetype: Table) {
+export function ensureReal(archetype: Struct) {
   if (!archetype.real) {
     archetype.real = true
     Signal.dispatch(archetype.onRealize, undefined)
   }
 }
 
-export function insert(table: Table, entity: Entity.Id, set: Component.ComponentSet) {
-  const index = table.entities.length
-  for (let i = 0; i < table.type.length; i++) {
-    const id = table.type[i]
+export function insert(
+  archetype: Struct,
+  entity: Entity.Id,
+  components: ComponentSet.Struct,
+) {
+  const index = archetype.entities.length
+  for (let i = 0; i < archetype.type.length; i++) {
+    const id = archetype.type[i]
     Debug.invariant(id !== undefined)
-    const data = set[id]
+    const data = components[id]
     Debug.invariant(data !== undefined)
-    const length = table.entities.length
-    const columnIndex = table.layout[id as number]
+    const length = archetype.entities.length
+    const columnIndex = archetype.layout[id as number]
     Debug.invariant(columnIndex !== undefined)
-    const column = table.store[columnIndex]
+    const column = archetype.store[columnIndex]
     Debug.invariant(column !== undefined)
     switch (column.kind) {
-      case Model.SchemaKind.BinaryScalar:
+      case Schema.SchemaKind.BinaryScalar:
         Debug.invariant(typeof data === "number")
         column.data[length] = data
         break
-      case Model.SchemaKind.BinaryStruct:
+      case Schema.SchemaKind.BinaryStruct:
         for (const key in column.schema.shape) {
           Debug.invariant(typeof data === "object")
           const nextArray = column.data[key]
@@ -224,61 +226,61 @@ export function insert(table: Table, entity: Entity.Id, set: Component.Component
           nextArray[length] = value
         }
         break
-      case Model.SchemaKind.NativeScalar:
-      case Model.SchemaKind.NativeObject:
+      case Schema.SchemaKind.NativeScalar:
+      case Schema.SchemaKind.NativeObject:
         Debug.invariant(typeof data === "number" || typeof data === "object")
         column.data[length] = data
         break
     }
   }
-  table.entities[index] = entity
-  table.entityIndex[entity] = index
-  ensureReal(table)
+  archetype.entities[index] = entity
+  archetype.entityIndex[entity] = index
+  ensureReal(archetype)
 }
 
-export function remove(table: Table, entity: number) {
-  const index = table.entityIndex[entity]
-  const head = table.entities.pop()
+export function remove(archetype: Struct, entity: number) {
+  const index = archetype.entityIndex[entity]
+  const head = archetype.entities.pop()
 
   Debug.invariant(index !== undefined)
   Debug.invariant(head !== undefined)
 
   if (entity === head) {
     // pop
-    for (let i = 0; i < table.store.length; i++) {
-      const column = table.store[i]
+    for (let i = 0; i < archetype.store.length; i++) {
+      const column = archetype.store[i]
       Debug.invariant(column !== undefined)
       switch (column.kind) {
-        case Model.SchemaKind.BinaryScalar:
+        case Schema.SchemaKind.BinaryScalar:
           column.data[index] = 0
           break
-        case Model.SchemaKind.BinaryStruct:
+        case Schema.SchemaKind.BinaryStruct:
           for (const key in column.schema.shape) {
             const array = column.data[key]
             Debug.invariant(array !== undefined)
             array[index] = 0
           }
           break
-        case Model.SchemaKind.NativeScalar:
-        case Model.SchemaKind.NativeObject:
+        case Schema.SchemaKind.NativeScalar:
+        case Schema.SchemaKind.NativeObject:
           column.data.pop()
           break
       }
     }
   } else {
     // swap
-    const from = table.entities.length - 1
-    for (let i = 0; i < table.store.length; i++) {
-      const column = table.store[i]
+    const from = archetype.entities.length - 1
+    for (let i = 0; i < archetype.store.length; i++) {
+      const column = archetype.store[i]
       Debug.invariant(column !== undefined)
       switch (column.kind) {
-        case Model.SchemaKind.BinaryScalar:
+        case Schema.SchemaKind.BinaryScalar:
           const data = column.data[from]
           Debug.invariant(data !== undefined)
           column.data[from] = 0
           column.data[index] = data
           break
-        case Model.SchemaKind.BinaryStruct:
+        case Schema.SchemaKind.BinaryStruct:
           for (const key in column.schema.shape) {
             const array = column.data[key]
             Debug.invariant(array !== undefined)
@@ -288,8 +290,8 @@ export function remove(table: Table, entity: number) {
             array[index] = data
           }
           break
-        case Model.SchemaKind.NativeScalar:
-        case Model.SchemaKind.NativeObject: {
+        case Schema.SchemaKind.NativeScalar:
+        case Schema.SchemaKind.NativeObject: {
           const data = column.data.pop()
           Debug.invariant(data !== undefined)
           column.data[index] = data
@@ -297,20 +299,16 @@ export function remove(table: Table, entity: number) {
         }
       }
     }
-    table.entities[index] = head
-    table.entityIndex[head] = index
+    archetype.entities[index] = head
+    archetype.entityIndex[head] = index
   }
 
-  table.entityIndex[entity] = -1
+  archetype.entityIndex[entity] = -1
 }
 
-export function writeColumnData(
-  column: Column,
-  index: number,
-  data: Data<Model.SchemaId>,
-) {
+export function writeColumnData(column: Column, index: number, data: Data<Schema.Id>) {
   switch (column.kind) {
-    case Model.SchemaKind.BinaryStruct:
+    case Schema.SchemaKind.BinaryStruct:
       Debug.invariant(typeof data === "object")
       for (const key in column.schema.shape) {
         const array = column.data[key]
@@ -320,9 +318,9 @@ export function writeColumnData(
         array[index] = value
       }
       break
-    case Model.SchemaKind.BinaryScalar:
-    case Model.SchemaKind.NativeScalar:
-    case Model.SchemaKind.NativeObject:
+    case Schema.SchemaKind.BinaryScalar:
+    case Schema.SchemaKind.NativeScalar:
+    case Schema.SchemaKind.NativeObject:
       column.data[index] = data
       break
   }
@@ -335,7 +333,7 @@ export function copyColumnData(
   nextIndex: number,
 ) {
   switch (prev.kind) {
-    case Model.SchemaKind.BinaryStruct:
+    case Schema.SchemaKind.BinaryStruct:
       Debug.invariant(prev.kind === next.kind)
       for (const key in prev.schema.shape) {
         const prevArray = prev.data[key]
@@ -347,9 +345,9 @@ export function copyColumnData(
         nextArray[nextIndex] = value
       }
       break
-    case Model.SchemaKind.BinaryScalar:
-    case Model.SchemaKind.NativeScalar:
-    case Model.SchemaKind.NativeObject: {
+    case Schema.SchemaKind.BinaryScalar:
+    case Schema.SchemaKind.NativeScalar:
+    case Schema.SchemaKind.NativeObject: {
       Debug.invariant(prev.kind === next.kind)
       const value = prev.data[prevIndex]
       Debug.invariant(value !== undefined)
@@ -361,9 +359,9 @@ export function copyColumnData(
 
 export function move(
   entity: Entity.Id,
-  prev: Table,
-  next: Table,
-  components?: Component.ComponentSet,
+  prev: Struct,
+  next: Struct,
+  components?: ComponentSet.Struct,
 ) {
   const nextIndex = next.entities.length
   for (let i = 0; i < next.type.length; i++) {
@@ -397,10 +395,41 @@ export function move(
   remove(prev, entity)
 }
 
+export function read<$Signature extends Type.Struct>(
+  entity: Entity.Id,
+  archetype: Struct,
+  layout: $Signature,
+  out: unknown[],
+) {
+  const index = archetype.entityIndex[entity]
+  Debug.invariant(index !== undefined)
+  for (let i = 0; i < layout.length; i++) {
+    const schemaId = layout[i]
+    Debug.invariant(schemaId !== undefined)
+    const columnIndex = archetype.layout[schemaId]
+    Debug.invariant(columnIndex !== undefined)
+    const column = archetype.store[columnIndex]
+    Debug.invariant(column !== undefined)
+    switch (column.kind) {
+      case Schema.SchemaKind.BinaryStruct:
+        const data = Component.expressBinaryShape(column.schema.shape)
+        for (const prop in data) {
+          data[prop] = column.data[prop]![index]!
+        }
+        out.push(data)
+        break
+      default:
+        out.push(column.data[index])
+        break
+    }
+  }
+  return out as unknown as RowData<$Signature>
+}
+
 export function write(
   entity: Entity.Id,
-  archetype: Table,
-  components: Component.ComponentSet,
+  archetype: Struct,
+  components: ComponentSet.Struct,
 ) {
   const index = archetype.entityIndex[entity]
   Debug.invariant(index !== undefined)

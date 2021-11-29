@@ -1,7 +1,7 @@
 import { Entity, Format, Query, Schema, World } from "../lib/src"
 
 describe("add_remove", () => {
-  it("transitions entities between archetypes", () => {
+  it("moves entities between archetypes", () => {
     const ENTITY_COUNT = 2
     const world = World.make(ENTITY_COUNT)
     const A = Schema.makeBinary(world, Format.float64)

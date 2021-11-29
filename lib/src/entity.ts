@@ -1,6 +1,7 @@
 import * as Archetype from "./archetype"
 import * as Graph from "./archetype_graph"
 import * as Component from "./component"
+import * as ComponentSet from "./component_set"
 import * as Debug from "./debug"
 import * as Type from "./type"
 import * as World from "./world"
@@ -22,7 +23,7 @@ export type Id = number
  * Entity.has(world, entity, [Position]) // true
  * ```
  */
-export function reserve(world: World.World, entity = world.entityHead) {
+export function reserve(world: World.Struct, entity = world.entityHead) {
   while (
     !(world.entityIndex[entity] === undefined && world.schemaIndex[entity] === undefined)
   ) {
@@ -54,24 +55,54 @@ export function reserve(world: World.World, entity = world.entityHead) {
  * Entity.make(world, [Position, Velocity], [, { x: -10, y: 42 }])
  * ```
  */
-export function make<$Type extends Type.Type>(
-  world: World.World,
-  layout: $Type = [] as unknown as $Type,
-  init: Component.ComponentSetInit<$Type> = [] as unknown as Component.ComponentSetInit<$Type>,
+export function make<$Signature extends Type.Struct>(
+  world: World.Struct,
+  layout: $Signature = [] as unknown as $Signature,
+  init: ComponentSet.Init<$Signature> = [] as unknown as ComponentSet.Init<$Signature>,
 ) {
   const entity = reserve(world)
   const type = Type.normalize(layout)
-  const archetype = Graph.findOrMake(world, type)
-  const components = Component.makeComponentSet(world, layout, init)
+  const archetype = Graph.findOrMakeArchetype(world, type)
+  const components = ComponentSet.make(world, layout, init)
   Archetype.insert(archetype, entity, components)
-  World.setEntityTable(world, entity, archetype)
+  World.setEntityArchetype(world, entity, archetype)
   return entity
+}
+
+/**
+ * Get the value of one or more components for an entity. Throws an error if
+ * the entity is not real, or if it does not have a component of each of
+ * the provided schema ids.
+ *
+ * @example <caption>Get the value of a single component</caption>
+ * ```ts
+ * const [position] = Entity.get(world, entity, [Position])
+ * ```
+ * @example <caption>Get the value of multiple components</caption>
+ * ```ts
+ * const [health, inventory] = Entity.get(world, entity, [Health, Inventory])
+ * ```
+ * @example <caption>Re-use an array to avoid allocating intermediate array</caption>
+ * ```ts
+ * const results = []
+ * const [health, stats] = Entity.get(world, entity, Player, results)
+ * ```
+ */
+export function get<$Signature extends Type.Struct>(
+  world: World.Struct,
+  entity: Id,
+  layout: $Signature,
+  out: unknown[] = [],
+) {
+  const archetype = World.getEntityArchetype(world, entity)
+  Debug.invariant(has(world, entity, layout))
+  return Archetype.read(entity, archetype, layout, out)
 }
 
 /**
  * Update the value of one or more components for an entity. If the entity does
  * not yet have components of the provided schema ids, add them. Throws an
- * error if the entity does not exist.
+ * error if the entity is not real.
  *
  * This function has the same interface as `Entity.make`, that is, it
  * optionally accepts a sparse array of initial component values.
@@ -90,24 +121,24 @@ export function make<$Type extends Type.Type>(
  * Entity.set(world, entity, [Health, Stamina], [99])
  * ```
  */
-export function set<$Type extends Type.Type>(
-  world: World.World,
+export function set<$Signature extends Type.Struct>(
+  world: World.Struct,
   entity: Id,
-  layout: $Type,
-  init: Component.ComponentSetInit<$Type> = [] as unknown as Component.ComponentSetInit<$Type>,
+  layout: $Signature,
+  init: ComponentSet.Init<$Signature> = [] as unknown as ComponentSet.Init<$Signature>,
 ) {
-  const prev = World.getEntityTable(world, entity)
-  const components = Component.makeComponentSet(world, layout, init)
+  const components = ComponentSet.make(world, layout, init)
   // Move the entity to an archetype that is the combination of the entity's
   // existing type and the provided layout.
+  const prev = World.getEntityArchetype(world, entity)
   const type = Type.and(prev.type, layout)
-  const next = Graph.findOrMake(world, type)
+  const next = Graph.findOrMakeArchetype(world, type)
   if (prev === next) {
     Archetype.write(entity, prev, components)
   } else {
     Archetype.move(entity, prev, next, components)
   }
-  World.setEntityTable(world, entity, next)
+  World.setEntityArchetype(world, entity, next)
 }
 
 /**
@@ -123,22 +154,22 @@ export function set<$Type extends Type.Type>(
  * Entity.unset(world, entity, [Health, Faction])
  * ```
  */
-export function unset<$Type extends Type.Type>(
-  world: World.World,
+export function unset<$Signature extends Type.Struct>(
+  world: World.Struct,
   entity: Id,
-  layout: $Type,
+  layout: $Signature,
 ) {
-  const prev = World.getEntityTable(world, entity)
+  const prev = World.getEntityArchetype(world, entity)
   const type = Type.xor(prev.type, layout)
-  const next = Graph.findOrMake(world, type)
+  const next = Graph.findOrMakeArchetype(world, type)
   Archetype.move(entity, prev, next)
-  World.setEntityTable(world, entity, next)
+  World.setEntityArchetype(world, entity, next)
 }
 
 /**
  * Check if an entity has one or more components. Returns true if the entity
  * has a component corresponding to all of the provided schema ids, otherwise
- * returns false. Throws an error if the entity does not exist.
+ * returns false. Throws an error if the entity is not real.
  *
  * @example <caption>Check if an entity has a single component</caption>
  * ```ts
@@ -149,14 +180,26 @@ export function unset<$Type extends Type.Type>(
  * Entity.has(world, entity, [Position, Velocity])
  * ```
  */
-export function has(world: World.World, entity: Id, layout: Type.Type) {
-  const table = World.getEntityTable(world, entity)
+export function has(world: World.Struct, entity: Id, layout: Type.Struct) {
+  const archetype = World.getEntityArchetype(world, entity)
   const type = Type.normalize(layout)
-  Debug.invariant(
-    table !== undefined,
-    `Failed to check entity's components: entity "${entity}" is not real`,
-  )
-  return Type.isEqual(table.type, type) || Type.isSupersetOf(table.type, type)
+  return Type.isEqual(archetype.type, type) || Type.isSupersetOf(archetype.type, type)
+}
+
+/**
+ * Check if an entity has one or more components. Unlike `has`, `tryHas` will
+ * not throw if the entity is not real.
+ */
+export function tryHas(world: World.Struct, entity: Id, layout: Type.Struct) {
+  try {
+    return has(world, entity, layout)
+  } catch (error) {
+    const final = Debug.unwrap(error)
+    if (final instanceof World.EntityNotRealError) {
+      return false
+    }
+    throw final
+  }
 }
 
 /**
@@ -168,12 +211,8 @@ export function has(world: World.World, entity: Id, layout: Type.Type) {
  * Entity.destroy(world, entity)
  * ```
  */
-export function destroy(world: World.World, entity: Id) {
-  const table = world.entityIndex[entity]
-  Debug.invariant(
-    table !== undefined,
-    `Failed to delete entity: entity "${entity}" is not real`,
-  )
-  Archetype.remove(table, entity)
-  World.unsetEntityTable(world, entity)
+export function destroy(world: World.Struct, entity: Id) {
+  const archetype = World.getEntityArchetype(world, entity)
+  Archetype.remove(archetype, entity)
+  World.unsetEntityArchetype(world, entity)
 }

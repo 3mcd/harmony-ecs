@@ -2,7 +2,7 @@ import * as Archetype from "./archetype"
 import * as Graph from "./archetype_graph"
 import * as Debug from "./debug"
 import * as Entity from "./entity"
-import * as Model from "./model"
+import * as Schema from "./schema"
 import * as Signal from "./signal"
 import * as Type from "./type"
 import * as World from "./world"
@@ -12,28 +12,28 @@ import * as World from "./world"
  *
  * @example <caption>Scalar binary query data</caption>
  * ```ts
- * const data: QueryRecordData<[Health]> = [
+ * const data: Query.RecordData<[Health]> = [
  *   Float64Array,
  * ]
  * ```
  * @example <caption>Complex binary query data (struct-of-array)</caption>
  * ```ts
- * const data: QueryRecordData<[Position, Health]> = [
+ * const data: Query.RecordData<[Position, Health]> = [
  *   [{ x: Float64Array, y: Float64Array }],
  *   Float64Array,
  * ]
  * ```
  * @example <caption>Complex native query data (array-of-struct)</caption>
  * ```ts
- * const data: QueryRecordData<[Position, Health]> = [
+ * const data: Query.RecordData<[Position, Health]> = [
  *   [{ x: 0, y: 0 }],
  *   [0],
  * ]
  * ```
  */
-export type QueryRecordData<$Type extends Type.Type> = {
-  [K in keyof $Type]: $Type[K] extends Model.SchemaId
-    ? Archetype.Column<$Type[K]>["data"]
+export type RecordData<$Signature extends Type.Struct> = {
+  [K in keyof $Signature]: $Signature[K] extends Schema.Id
+    ? Archetype.Column<$Signature[K]>["data"]
     : never
 }
 
@@ -51,14 +51,14 @@ export type QueryRecordData<$Type extends Type.Type> = {
  * }
  * ```
  */
-export type QueryRecord<$Type extends Type.Type> = [
+export type Record<$Signature extends Type.Struct> = [
   entities: ReadonlyArray<Entity.Id>,
-  data: QueryRecordData<$Type>,
+  data: RecordData<$Signature>,
 ]
 
 /**
  * An iterable list of query records, where each result corresponds to an
- * archetype (or table) of entities that match the query's selector.
+ * archetype (or archetype) of entities that match the query's selector.
  *
  * @example <caption>Iterate a query</caption>
  * ```ts
@@ -69,47 +69,47 @@ export type QueryRecord<$Type extends Type.Type> = [
  * }
  * ```
  */
-export type Query<$Type extends Type.Type = Type.Type> = QueryRecord<$Type>[]
+export type Struct<$Signature extends Type.Struct = Type.Struct> = Record<$Signature>[]
 /**
  * A function that is executed when an entity is considered by a query. Returning
  * false will exclude the entity from the query results.
  */
-export type QueryFilter = (type: Type.Type, table: Archetype.Table) => boolean
+export type Filter = (type: Type.Struct, archetype: Archetype.Struct) => boolean
 
-function bindArchetype<$Type extends Type.Type>(
-  records: Query<$Type>,
-  layout: $Type,
-  table: Archetype.Table,
+function bindArchetype<$Signature extends Type.Struct>(
+  records: Struct<$Signature>,
+  layout: $Signature,
+  archetype: Archetype.Struct,
 ) {
   const columns = layout.map(function findColumnDataById(id) {
-    const columnIndex = table.layout[id]
+    const columnIndex = archetype.layout[id]
     Debug.invariant(columnIndex !== undefined)
-    const column = table.store[columnIndex]
+    const column = archetype.store[columnIndex]
     Debug.invariant(column !== undefined)
     return column.data
   })
-  records.push([table.entities, columns as unknown as QueryRecordData<$Type>])
+  records.push([archetype.entities, columns as unknown as RecordData<$Signature>])
 }
 
-function maybeBindArchetype<$Type extends Type.Type>(
-  records: Query<$Type>,
-  type: Type.Type,
-  layout: $Type,
-  table: Archetype.Table,
-  filters: QueryFilter[],
+function maybeBindArchetype<$Signature extends Type.Struct>(
+  records: Struct<$Signature>,
+  type: Type.Struct,
+  layout: $Signature,
+  archetype: Archetype.Struct,
+  filters: Filter[],
 ) {
   if (
     filters.every(function testPredicate(predicate) {
-      return predicate(type, table)
+      return predicate(type, archetype)
     })
   ) {
-    if (table.real) {
-      bindArchetype(records, layout, table)
+    if (archetype.real) {
+      bindArchetype(records, layout, archetype)
     } else {
       const unsubscribe = Signal.subscribe(
-        table.onRealize,
+        archetype.onRealize,
         function bindArchetypeAndUnsubscribe() {
-          bindArchetype(records, layout, table)
+          bindArchetype(records, layout, archetype)
           unsubscribe()
         },
       )
@@ -117,16 +117,16 @@ function maybeBindArchetype<$Type extends Type.Type>(
   }
 }
 
-function makeStaticQueryInternal<$Type extends Type.Type>(
-  type: Type.Type,
-  layout: $Type,
-  table: Archetype.Table,
-  filters: QueryFilter[],
-): Query<$Type> {
-  const query: Query<$Type> = []
+function makeStaticQueryInternal<$Signature extends Type.Struct>(
+  type: Type.Struct,
+  layout: $Signature,
+  archetype: Archetype.Struct,
+  filters: Filter[],
+): Struct<$Signature> {
+  const query: Struct<$Signature> = []
   Type.invariantNormalized(type)
-  maybeBindArchetype(query, type, layout, table, filters)
-  Graph.traverseRight(table, function maybeBindNextArchetype(archetype) {
+  maybeBindArchetype(query, type, layout, archetype, filters)
+  Graph.traverse(archetype, function maybeBindNextArchetype(archetype) {
     maybeBindArchetype(query, type, layout, archetype, filters)
   })
   return query
@@ -152,13 +152,13 @@ function makeStaticQueryInternal<$Type extends Type.Type>(
  * }
  * ```
  */
-export function make<$Type extends Type.Type>(
-  world: World.World,
-  layout: $Type,
-  ...filters: QueryFilter[]
-): Query<$Type> {
+export function make<$Signature extends Type.Struct>(
+  world: World.Struct,
+  layout: $Signature,
+  ...filters: Filter[]
+): Struct<$Signature> {
   const type = Type.normalize(layout)
-  const identity = Graph.findOrMake(world, type)
+  const identity = Graph.findOrMakeArchetype(world, type)
   const query = makeStaticQueryInternal(type, layout, identity, filters)
   Signal.subscribe(
     identity.onTableInsert,
@@ -183,13 +183,13 @@ export function make<$Type extends Type.Type>(
  * points.reduce((a, [e]) => a + e.length, 0) // 1 (did not detect (P, V) archetype)
  * ```
  */
-export function makeStatic<$Type extends Type.Type>(
-  world: World.World,
-  layout: $Type,
-  ...filters: QueryFilter[]
-): Query<$Type> {
+export function makeStatic<$Signature extends Type.Struct>(
+  world: World.Struct,
+  layout: $Signature,
+  ...filters: Filter[]
+): Struct<$Signature> {
   const type = Type.normalize(layout)
-  const identity = Graph.findOrMake(world, type)
+  const identity = Graph.findOrMakeArchetype(world, type)
   return makeStaticQueryInternal(type, layout, identity, filters)
 }
 
@@ -197,9 +197,12 @@ export function makeStatic<$Type extends Type.Type>(
  * A query filter that will exclude entities with all of the specified
  * components.
  */
-export function not(layout: Type.Type) {
+export function not(layout: Type.Struct) {
   const type = Type.normalize(layout)
-  return function isArchetypeNotSupersetOfType(_: Type.Type, archetype: Archetype.Table) {
+  return function isArchetypeNotSupersetOfType(
+    _: Type.Struct,
+    archetype: Archetype.Struct,
+  ) {
     return !Type.isSupersetOf(archetype.type, type)
   }
 }

@@ -1,5 +1,5 @@
 import { Entity, Schema, World } from "../../../lib/src"
-import { Table } from "../../../lib/src/archetype"
+import { Struct } from "../../../lib/src/archetype"
 import { makePerfOnce } from "../perf"
 
 function makeFixture() {
@@ -35,7 +35,7 @@ function makeFixture() {
 
 const results: number[] = []
 
-let world: World.World
+let world: World.Struct
 
 for (let i = 0; i < 10; i++) {
   const fixture = makeFixture()
@@ -53,7 +53,7 @@ for (let i = 0; i < 10; i++) {
 
 const avgTime = results.reduce((a, x) => a + x, 0) / 100
 
-function getUniqueArchetypes(archetype: Table, visited = new Set<Table>()) {
+function getUniqueArchetypes(archetype: Struct, visited = new Set<Struct>()) {
   visited.add(archetype)
   archetype.edgesSet.forEach(a => getUniqueArchetypes(a, visited))
   return visited

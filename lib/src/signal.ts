@@ -1,23 +1,22 @@
 import * as Debug from "./debug"
 
-export type SignalSubscriber<T> = (t: T) => void
-export type Signal<T = void> = { subscribers: SignalSubscriber<T>[] }
+export type Subscriber<T> = (t: T) => void
+export type Struct<T = void> = Subscriber<T>[]
 
-export function make<T>(): Signal<T> {
-  const subscribers: SignalSubscriber<T>[] = []
-  return { subscribers }
+export function make<T>(): Struct<T> {
+  return []
 }
 
-export function subscribe<T>(signal: Signal<T>, subscriber: SignalSubscriber<T>) {
-  const index = signal.subscribers.push(subscriber) - 1
+export function subscribe<T>(subscribers: Struct<T>, subscriber: Subscriber<T>) {
+  const index = subscribers.push(subscriber) - 1
   return function unsubscribe() {
-    signal.subscribers.splice(index, 1)
+    subscribers.splice(index, 1)
   }
 }
 
-export function dispatch<T>(signal: Signal<T>, t: T) {
-  for (let i = signal.subscribers.length - 1; i >= 0; i--) {
-    const subscriber = signal.subscribers[i]
+export function dispatch<T>(subscribers: Struct<T>, t: T) {
+  for (let i = subscribers.length - 1; i >= 0; i--) {
+    const subscriber = subscribers[i]
     Debug.invariant(subscriber !== undefined)
     subscriber(t!)
   }

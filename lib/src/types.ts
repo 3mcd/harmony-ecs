@@ -20,4 +20,4 @@ export declare class OpaqueTag<$Tag> {
   protected tag: $Tag
 }
 
-export type Opaque<$Type, $Tag> = $Type & OpaqueTag<$Tag>
+export type Opaque<$Signature, $Tag> = $Signature & OpaqueTag<$Tag>

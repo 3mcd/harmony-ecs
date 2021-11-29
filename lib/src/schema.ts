@@ -52,16 +52,13 @@ export type AnyBinarySchema = BinaryScalarSchema | BinaryStructSchema
 /** @internal */
 export type AnySchema = AnyBinarySchema | AnyNativeSchema
 /** @internal */
-export type Shape<$Type extends { shape: unknown }> = $Type["shape"]
+export type Shape<$Signature extends { shape: unknown }> = $Signature["shape"]
 
 /**
  * An entity id wrapped in a generic type that allows Harmony to infer the
  * component shape from the underlying primitive type.
  */
-export type SchemaId<$Schema extends AnySchema = AnySchema> = Types.Opaque<
-  Entity.Id,
-  $Schema
->
+export type Id<$Schema extends AnySchema = AnySchema> = Types.Opaque<Entity.Id, $Schema>
 
 /**
  * A schema whose components are standard JavaScript objects or scalar values.
@@ -70,9 +67,9 @@ export type SchemaId<$Schema extends AnySchema = AnySchema> = Types.Opaque<
  */
 export type NativeSchema<$Shape extends Shape<AnyNativeSchema>> =
   $Shape extends Shape<NativeScalarSchema>
-    ? SchemaId<NativeScalarSchema<$Shape>>
+    ? Id<NativeScalarSchema<$Shape>>
     : $Shape extends Shape<NativeObjectSchema>
-    ? SchemaId<NativeObjectSchema<$Shape>>
+    ? Id<NativeObjectSchema<$Shape>>
     : never
 
 /**
@@ -83,9 +80,9 @@ export type NativeSchema<$Shape extends Shape<AnyNativeSchema>> =
  */
 export type BinarySchema<$Shape extends Shape<AnyBinarySchema>> =
   $Shape extends Shape<BinaryScalarSchema>
-    ? SchemaId<BinaryScalarSchema<$Shape>>
+    ? Id<BinaryScalarSchema<$Shape>>
     : $Shape extends Shape<BinaryStructSchema>
-    ? SchemaId<BinaryStructSchema<$Shape>>
+    ? Id<BinaryStructSchema<$Shape>>
     : never
 
 /** @internal */
@@ -124,7 +121,7 @@ export function isBinarySchema(schema: AnySchema): schema is AnyBinarySchema {
  * ```
  */
 export function make<$Shape extends Shape<AnyNativeSchema>>(
-  world: World.World,
+  world: World.Struct,
   shape: $Shape,
   reserve?: number,
 ): NativeSchema<$Shape> {
@@ -156,7 +153,7 @@ export function make<$Shape extends Shape<AnyNativeSchema>>(
  * ```
  */
 export function makeBinary<$Shape extends Shape<AnyBinarySchema>>(
-  world: World.World,
+  world: World.Struct,
   shape: $Shape,
   reserve?: number,
 ): BinarySchema<$Shape> {

@@ -1,7 +1,7 @@
 import * as Archetype from "./archetype"
 import * as Debug from "./debug"
 import * as Entity from "./entity"
-import * as Model from "./model"
+import * as Schema from "./schema"
 import * as SparseMap from "./sparse_map"
 import * as Type from "./type"
 import * as World from "./world"
@@ -14,11 +14,11 @@ export type EntityDelta =
   // Component changes (add/remove) are expressed as a sparse map, where the
   // keys are schema ids, and the values are component data or tombstones, in
   // the case a component was removed.
-  | SparseMap.SparseMap<typeof Symbols.$tombstone | unknown, Model.SchemaId>
+  | SparseMap.Struct<typeof Symbols.$tombstone | unknown, Schema.Id>
 
-export type Cache = SparseMap.SparseMap<EntityDelta, Entity.Id>
+export type Struct = SparseMap.Struct<EntityDelta, Entity.Id>
 
-function ensureEntityDelta(cache: Cache, entity: Entity.Id) {
+function ensureEntityDelta(cache: Struct, entity: Entity.Id) {
   let delta = SparseMap.get(cache, entity)
   if (delta === undefined) {
     delta = SparseMap.make()
@@ -27,11 +27,11 @@ function ensureEntityDelta(cache: Cache, entity: Entity.Id) {
   return delta
 }
 
-export function set<$Type extends Type.Type>(
-  cache: Cache,
+export function set<$Signature extends Type.Struct>(
+  cache: Struct,
   entity: Entity.Id,
-  type: Type.Type,
-  data: Archetype.Row<$Type>,
+  type: Type.Struct,
+  data: Archetype.RowData<$Signature>,
 ) {
   const delta = ensureEntityDelta(cache, entity)
   if (delta === Symbols.$tombstone) return
@@ -42,7 +42,7 @@ export function set<$Type extends Type.Type>(
   }
 }
 
-export function unset(cache: Cache, entity: Entity.Id, type: Type.Type) {
+export function unset(cache: Struct, entity: Entity.Id, type: Type.Struct) {
   const delta = ensureEntityDelta(cache, entity)
   if (delta === Symbols.$tombstone) return
   for (let i = 0; i < type.length; i++) {
@@ -52,17 +52,16 @@ export function unset(cache: Cache, entity: Entity.Id, type: Type.Type) {
   }
 }
 
-export function destroy(cache: Cache, entity: Entity.Id) {
+export function destroy(cache: Struct, entity: Entity.Id) {
   SparseMap.set(cache, entity, Symbols.$tombstone)
 }
 
-export function make(): Cache {
+export function make(): Struct {
   return SparseMap.make<EntityDelta, Entity.Id>()
 }
 
-export function apply(cache: Cache, world: World.World) {
+export function apply(cache: Struct, world: World.Struct) {
   SparseMap.forEach(cache, function applyEntityDelta(delta, entity) {
-    // const prev = World.getEntityTable(world, entity)
     if (delta === Symbols.$tombstone) {
       Entity.destroy(world, entity)
     } else {
@@ -74,11 +73,10 @@ export function apply(cache: Cache, world: World.World) {
         }
       })
     }
-    // const next = World.getEntityTable(world, entity)
   })
 }
 
-export function clear(cache: Cache) {
+export function clear(cache: Struct) {
   SparseMap.clear(cache)
   return cache
 }
