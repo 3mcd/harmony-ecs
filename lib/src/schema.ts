@@ -10,6 +10,7 @@ export enum SchemaKind {
   NativeObject,
   BinaryScalar,
   BinaryStruct,
+  Tag,
 }
 
 /** @internal */
@@ -46,11 +47,20 @@ export type BinaryStructSchema<
 }
 
 /** @internal */
+export type TagSchema = {
+  id: number
+  kind: SchemaKind.Tag
+  shape: null
+}
+
+/** @internal */
 export type AnyNativeSchema = NativeScalarSchema | NativeObjectSchema
 /** @internal */
 export type AnyBinarySchema = BinaryScalarSchema | BinaryStructSchema
 /** @internal */
-export type AnySchema = AnyBinarySchema | AnyNativeSchema
+export type ComplexSchema = AnyBinarySchema | AnyNativeSchema
+/** @internal */
+export type AnySchema = ComplexSchema | TagSchema
 /** @internal */
 export type Shape<$Signature extends { shape: unknown }> = $Signature["shape"]
 
@@ -91,14 +101,14 @@ export function isFormat(object: object): object is Format.Format {
 }
 
 /** @internal */
-export function isNativeSchema(schema: AnySchema): schema is AnyNativeSchema {
+export function isNativeSchema(schema: ComplexSchema): schema is AnyNativeSchema {
   return (
     schema.kind === SchemaKind.NativeScalar || schema.kind === SchemaKind.NativeObject
   )
 }
 
 /** @internal */
-export function isBinarySchema(schema: AnySchema): schema is AnyBinarySchema {
+export function isBinarySchema(schema: ComplexSchema): schema is AnyBinarySchema {
   return (
     schema.kind === SchemaKind.BinaryScalar || schema.kind === SchemaKind.BinaryStruct
   )
@@ -166,4 +176,22 @@ export function makeBinary<$Shape extends Shape<AnyBinarySchema>>(
   }
   World.registerSchema(world, id, schema)
   return id as BinarySchema<$Shape>
+}
+
+/**
+ * Create a tag schema – a data-less, lightweight component type that is faster
+ * than complex or scalar components since there is no data to copy when moving
+ * an entity between archetypes.
+ *
+ * Returns an id that is used to reference the schema throughout Harmony's API.
+ *
+ * @example <caption>Create a tag schema</caption>
+ * ```ts
+ * const Frozen = Schema.makeTag(world)
+ * ```
+ */
+export function makeTag(world: World.Struct, reserve?: number): Id<TagSchema> {
+  const id = Entity.reserve(world, reserve)
+  World.registerSchema(world, id, { id, kind: SchemaKind.Tag, shape: null })
+  return id as Id<TagSchema>
 }

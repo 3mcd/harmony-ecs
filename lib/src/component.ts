@@ -32,9 +32,16 @@ export function expressNativeShape<$Shape extends Schema.Shape<Schema.AnyNativeS
 }
 
 export function expressSchema<$Schema extends Schema.AnySchema>(schema: $Schema) {
-  return Schema.isBinarySchema(schema)
-    ? expressBinaryShape(schema.shape)
-    : expressNativeShape(schema.shape)
+  switch (schema.kind) {
+    case Schema.SchemaKind.BinaryScalar:
+    case Schema.SchemaKind.BinaryStruct:
+      return expressBinaryShape(schema.shape)
+    case Schema.SchemaKind.NativeScalar:
+    case Schema.SchemaKind.NativeObject:
+      return expressNativeShape(schema.shape)
+    default:
+      return undefined
+  }
 }
 
 export function expressType<$Signature extends Type.Struct>(

@@ -23,7 +23,7 @@ export type NativeData<$Shape extends Schema.Shape<Schema.AnyNativeSchema>> =
           : never
       }
 
-export type DataOfShape<$Shape extends Schema.Shape<Schema.AnySchema>> =
+export type DataOfShape<$Shape extends Schema.Shape<Schema.ComplexSchema>> =
   $Shape extends Schema.Shape<Schema.AnyBinarySchema>
     ? BinaryData<$Shape>
     : $Shape extends Schema.Shape<Schema.AnyNativeSchema>
@@ -31,7 +31,9 @@ export type DataOfShape<$Shape extends Schema.Shape<Schema.AnySchema>> =
     : never
 
 export type Data<$SchemaId extends Schema.Id> = $SchemaId extends Schema.Id<infer $Schema>
-  ? DataOfShape<Schema.Shape<$Schema>>
+  ? $Schema extends Schema.ComplexSchema
+    ? DataOfShape<Schema.Shape<$Schema>>
+    : never
   : never
 
 type ScalarBinaryColumn<
@@ -70,6 +72,12 @@ type ComplexNativeColumn<
   data: NativeData<Schema.Shape<$Schema>>[]
 }
 
+type TagColumn<$Schema extends Schema.TagSchema = Schema.TagSchema> = {
+  kind: Schema.SchemaKind.Tag
+  schema: $Schema
+  data: null
+}
+
 export type ColumnOfSchema<$Schema extends Schema.AnySchema> =
   $Schema extends Schema.BinaryScalarSchema
     ? ScalarBinaryColumn<$Schema>
@@ -79,20 +87,14 @@ export type ColumnOfSchema<$Schema extends Schema.AnySchema> =
     ? ScalarNativeColumn<$Schema>
     : $Schema extends Schema.NativeObjectSchema
     ? ComplexNativeColumn<$Schema>
+    : $Schema extends Schema.TagSchema
+    ? TagColumn
     : never
 
 export type Column<$SchemaId extends Schema.Id = Schema.Id> = $SchemaId extends Schema.Id<
   infer $Schema
 >
-  ? $Schema extends Schema.BinaryScalarSchema
-    ? ScalarBinaryColumn<$Schema>
-    : $Schema extends Schema.BinaryStructSchema
-    ? ComplexBinaryColumn<$Schema>
-    : $Schema extends Schema.NativeScalarSchema
-    ? ScalarNativeColumn<$Schema>
-    : $Schema extends Schema.NativeObjectSchema
-    ? ComplexNativeColumn<$Schema>
-    : never
+  ? ColumnOfSchema<$Schema>
   : never
 
 export type Store<$Signature extends Type.Struct> = {
@@ -141,6 +143,9 @@ function makeColumn(schema: Schema.AnySchema, size: number): Column {
     case Schema.SchemaKind.NativeScalar:
     case Schema.SchemaKind.NativeObject:
       data = []
+      break
+    case Schema.SchemaKind.Tag:
+      data = null
       break
   }
   return { kind: schema.kind, schema, data } as Column
@@ -410,18 +415,23 @@ export function read<$Signature extends Type.Struct>(
     Debug.invariant(columnIndex !== undefined)
     const column = archetype.store[columnIndex]
     Debug.invariant(column !== undefined)
+    let value: unknown
     switch (column.kind) {
       case Schema.SchemaKind.BinaryStruct:
         const data = Component.expressBinaryShape(column.schema.shape)
         for (const prop in data) {
           data[prop] = column.data[prop]![index]!
         }
-        out.push(data)
+        value = data
+        break
+      case Schema.SchemaKind.Tag:
+        value = undefined
         break
       default:
-        out.push(column.data[index])
+        value = column.data[index]
         break
     }
+    out.push(value)
   }
   return out as unknown as RowData<$Signature>
 }
