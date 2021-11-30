@@ -60,8 +60,7 @@ export function getEntityArchetype(world: Struct, entity: Entity.Id) {
 
 /** @internal */
 export function tryGetEntityArchetype(world: Struct, entity: Entity.Id) {
-  const archetype = world.entityIndex[entity]
-  return archetype
+  return world.entityIndex[entity]
 }
 
 /** @internal */
