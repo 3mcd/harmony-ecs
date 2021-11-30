@@ -1,6 +1,6 @@
 # harmony-ecs
 
-An Entity-Component-System (ECS) focused on compatibility and performance. Harmony has a small footprint, making it a good set of building blocks to create a full ECS with.
+A compatibility and performance-focused Entity-Component-System (ECS) for JavaScript.
 
 <p>
   <img alt="NPM" src="https://img.shields.io/npm/l/harmony-ecs?style=flat-square">
@@ -13,11 +13,11 @@ An Entity-Component-System (ECS) focused on compatibility and performance. Harmo
 
 ## Features
 
-- Hybrid struct-of-array `{x: [0]}` and array-of-struct `[{x: 0}]` storage
-- Scalar and complex components e.g., `1.23` and `{position: {x: 1.23}}`
-- Fast iteration and mutation ([benchmarks](https://github.com/3mcd/ecs-benchmark/tree/harmony-ecs))
-- Fast insert/relocate and auto-updating queries thanks to a [connected archetype graph](./graph.png)
-- Compatible with third-party libraries like Three.js, Cannon, etc.
+- Hybrid [SoA and AoS](https://en.wikipedia.org/wiki/AoS_and_SoA) storage
+- Complex, scalar, and tag components
+- Fast iteration and mutation [[1]](https://github.com/ddmills/js-ecs-benchmarks) [[2]](https://github.com/noctjs/ecs-benchmark)
+- Fast insert/relocate and auto-updating queries via [connected archetype graph](./graph.png)
+- Compatible with third-party libraries like Three.js, Pixi, and Cannon
 
 ## Installation
 
