@@ -209,33 +209,16 @@ export function insert(
   for (let i = 0; i < archetype.type.length; i++) {
     const id = archetype.type[i]
     Debug.invariant(id !== undefined)
-    const data = components[id]
-    Debug.invariant(data !== undefined)
-    const length = archetype.entities.length
     const columnIndex = archetype.layout[id as number]
     Debug.invariant(columnIndex !== undefined)
     const column = archetype.store[columnIndex]
     Debug.invariant(column !== undefined)
-    switch (column.kind) {
-      case Schema.SchemaKind.BinaryScalar:
-        Debug.invariant(typeof data === "number")
-        column.data[length] = data
-        break
-      case Schema.SchemaKind.BinaryStruct:
-        for (const key in column.schema.shape) {
-          Debug.invariant(typeof data === "object")
-          const nextArray = column.data[key]
-          const value = data[key]
-          Debug.invariant(nextArray !== undefined)
-          Debug.invariant(typeof value === "number")
-          nextArray[length] = value
-        }
-        break
-      case Schema.SchemaKind.NativeScalar:
-      case Schema.SchemaKind.NativeObject:
-        Debug.invariant(typeof data === "number" || typeof data === "object")
-        column.data[length] = data
-        break
+    const kind = column.kind
+    // insert components, skipping over tag schema
+    if (kind !== Schema.SchemaKind.Tag) {
+      const data = components[id] ?? Component.expressSchema(column.schema)
+      Debug.invariant(data !== undefined)
+      writeColumnData(column, archetype.entities.length, data)
     }
   }
   archetype.entities[index] = entity
@@ -366,7 +349,7 @@ export function move(
   entity: Entity.Id,
   prev: Struct,
   next: Struct,
-  components?: ComponentSet.Struct,
+  data?: ComponentSet.Struct,
 ) {
   const nextIndex = next.entities.length
   for (let i = 0; i < next.type.length; i++) {
@@ -375,16 +358,19 @@ export function move(
     const columnIndex = prev.layout[id]
     const nextColumn = next.store[i]
     Debug.invariant(nextColumn !== undefined)
+    if (nextColumn.kind === Schema.SchemaKind.Tag) {
+      continue
+    }
     if (columnIndex === undefined) {
-      Debug.invariant(components !== undefined)
-      const value = components[id]
+      Debug.invariant(data !== undefined)
+      const value = data[id] ?? Component.expressSchema(nextColumn.schema)
       Debug.invariant(value !== undefined)
       writeColumnData(nextColumn, nextIndex, value)
     } else {
       Debug.invariant(columnIndex !== undefined)
       const prevIndex = prev.entityIndex[entity]
       const prevColumn = prev.store[columnIndex]
-      const value = components?.[id]
+      const value = data?.[id]
       Debug.invariant(prevIndex !== undefined)
       Debug.invariant(prevColumn !== undefined)
       if (value === undefined) {

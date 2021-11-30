@@ -1,7 +1,7 @@
 import * as Cannon from "cannon-es"
 import * as Three from "three"
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls"
-import { Format, World, Schema, Query, Entity } from "../../../lib/src"
+import { Format, World, Schema, Query, Entity, Debug } from "../../../lib/src"
 
 const BOUNCE_IMPULSE = new Cannon.Vec3(0, 10, 0)
 
@@ -16,15 +16,24 @@ const Object3D = { position: Vec3, quaternion: Quaternion }
 const world = World.make(1_000)
 const Body = Schema.make(world, Object3D)
 const Mesh = Schema.make(world, Object3D)
-const Bounce = Schema.make(world, { latestBounceTime: Format.float64 })
+const Bounce = Schema.makeBinary(world, Format.float64)
+const Tag = Schema.makeTag(world)
+
+const Tagged = [Tag] as const
+const Box = [Body, Mesh] as const
+const BoxBounce = [...Box, Bounce] as const
+const BoxBounceTagged = [...BoxBounce, ...Tagged] as const
+
 const canvas = document.getElementById("game") as HTMLCanvasElement
 const renderer = new Three.WebGLRenderer({ antialias: true, canvas })
 const camera = new Three.PerspectiveCamera(45, 1, 0.1, 2000000)
 const controls = new OrbitControls(camera, renderer.domElement)
 const scene = new Three.Scene()
 const simulation = new Cannon.World({ gravity: new Cannon.Vec3(0, -9.81, 0) })
-const bodies = Query.make(world, [Body, Mesh] as const)
-const bouncing = Query.make(world, [Body, Bounce] as const)
+const bodies = Query.make(world, Box)
+const bouncing = Query.make(world, BoxBounce)
+const bouncingWithTag = Query.make(world, BoxBounceTagged)
+const bouncingWithoutTag = Query.make(world, BoxBounce, Query.not([Tag]))
 
 scene.add(new Three.AmbientLight(0x404040), new Three.DirectionalLight(0xffffff, 0.5))
 
@@ -51,7 +60,7 @@ function createBox(
     halfExtents.y * 2,
     halfExtents.z * 2,
   )
-  const material = new Three.MeshLambertMaterial({ color })
+  const material = new Three.MeshLambertMaterial({ color, transparent: true })
   const mesh = new Three.Mesh(geometry, material)
   return [body, mesh]
 }
@@ -95,7 +104,7 @@ function spawn() {
         [Body, Mesh],
         createBox(new Cannon.Vec3(random(25), 20, random(25))),
       )
-      if (i % 2 === 0) Entity.set(world, entity, [Bounce], [{ latestBounceTime: 0 }])
+      if (i % 2 === 0) Entity.set(world, entity, [Bounce], [0])
     }
     spawnInit = false
   }
@@ -111,7 +120,7 @@ function physics(dt: number) {
       for (let j = 0; j < entities.length; j++) {
         simulation.addBody(
           // manually cast the component to it's true type since we lose type
-          // information by storing it in the ECS
+          // information bb storing it in Harmony
           b[j] as Cannon.Body,
         )
       }
@@ -119,13 +128,18 @@ function physics(dt: number) {
     physicsInit = false
   }
   for (let i = 0; i < bouncing.length; i++) {
-    const [entities, [by, bo]] = bouncing[i]!
+    const [entities, [b, , bo]] = bouncing[i]!
     for (let j = 0; j < entities.length; j++) {
-      const bounce = bo[j]!
-      const body = by[j] as Cannon.Body
-      if (now - bounce.latestBounceTime >= 2000) {
-        bounce.latestBounceTime = now
-        body.applyLocalImpulse(BOUNCE_IMPULSE)
+      const entity = entities[j]!
+      const body = b[j] as Cannon.Body
+      if (now - bo[j]! >= 5000) {
+        bo[j] = now
+        body.applyImpulse(BOUNCE_IMPULSE)
+        if (Entity.has(world, entity, Tagged)) {
+          Entity.unset(world, entity, Tagged)
+        } else {
+          Entity.set(world, entity, Tagged)
+        }
       }
     }
   }
@@ -155,6 +169,19 @@ function render() {
       copyBodyToMesh(b[j] as Cannon.Body, m[j] as Three.Mesh)
     }
   }
+  for (let i = 0; i < bouncingWithTag.length; i++) {
+    const [entities, [, m]] = bouncingWithTag[i]!
+    for (let j = 0; j < entities.length; j++) {
+      ;((m[j] as Three.Mesh).material as Three.MeshLambertMaterial).color.set(0xff0000)
+    }
+  }
+  for (let i = 0; i < bouncingWithoutTag.length; i++) {
+    const [entities, [, m]] = bouncingWithoutTag[i]!
+    for (let j = 0; j < entities.length; j++) {
+      ;((m[j] as Three.Mesh).material as Three.MeshLambertMaterial).color.set(0x00ffff)
+    }
+  }
+
   // render scene
   controls.update()
   renderer.render(scene, camera)

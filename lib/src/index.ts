@@ -40,5 +40,7 @@ export * as Types from "./types"
 export * as World from "./world"
 /** @internal */
 export * as Symbols from "./symbols"
+/** @internal */
+export * as Debug from "./debug"
 
 export * as Format from "./format"

@@ -1,6 +1,5 @@
 import * as Archetype from "./archetype"
 import * as Graph from "./archetype_graph"
-import * as Component from "./component"
 import * as ComponentSet from "./component_set"
 import * as Debug from "./debug"
 import * as Type from "./type"
@@ -57,13 +56,12 @@ export function reserve(world: World.Struct, entity = world.entityHead) {
  */
 export function make<$Signature extends Type.Struct>(
   world: World.Struct,
-  layout: $Signature = [] as unknown as $Signature,
-  init: ComponentSet.Init<$Signature> = [] as unknown as ComponentSet.Init<$Signature>,
+  layout = [] as unknown as $Signature,
+  init = [] as unknown as ComponentSet.Init<$Signature>,
 ) {
   const entity = reserve(world)
-  const type = Type.normalize(layout)
-  const archetype = Graph.findOrMakeArchetype(world, type)
   const components = ComponentSet.make(world, layout, init)
+  const archetype = Graph.findOrMakeArchetype(world, Type.normalize(layout))
   Archetype.insert(archetype, entity, components)
   World.setEntityArchetype(world, entity, archetype)
   return entity
@@ -125,20 +123,20 @@ export function set<$Signature extends Type.Struct>(
   world: World.Struct,
   entity: Id,
   layout: $Signature,
-  init: ComponentSet.Init<$Signature> = [] as unknown as ComponentSet.Init<$Signature>,
+  init = [] as unknown as ComponentSet.Init<$Signature>,
 ) {
   const components = ComponentSet.make(world, layout, init)
-  // Move the entity to an archetype that is the combination of the entity's
-  // existing type and the provided layout.
-  const prev = World.getEntityArchetype(world, entity)
-  const type = Type.and(prev.type, layout)
-  const next = Graph.findOrMakeArchetype(world, type)
-  if (prev === next) {
-    Archetype.write(entity, prev, components)
+  const prevArchetype = World.getEntityArchetype(world, entity)
+  const nextArchetype = Graph.findOrMakeArchetype(
+    world,
+    Type.and(prevArchetype.type, layout),
+  )
+  if (prevArchetype === nextArchetype) {
+    Archetype.write(entity, prevArchetype, components)
   } else {
-    Archetype.move(entity, prev, next, components)
+    Archetype.move(entity, prevArchetype, nextArchetype, components)
   }
-  World.setEntityArchetype(world, entity, next)
+  World.setEntityArchetype(world, entity, nextArchetype)
 }
 
 /**
@@ -159,11 +157,13 @@ export function unset<$Signature extends Type.Struct>(
   entity: Id,
   layout: $Signature,
 ) {
-  const prev = World.getEntityArchetype(world, entity)
-  const type = Type.xor(prev.type, layout)
-  const next = Graph.findOrMakeArchetype(world, type)
-  Archetype.move(entity, prev, next)
-  World.setEntityArchetype(world, entity, next)
+  const prevArchetype = World.getEntityArchetype(world, entity)
+  const nextArchetype = Graph.findOrMakeArchetype(
+    world,
+    Type.xor(prevArchetype.type, layout),
+  )
+  Archetype.move(entity, prevArchetype, nextArchetype)
+  World.setEntityArchetype(world, entity, nextArchetype)
 }
 
 /**

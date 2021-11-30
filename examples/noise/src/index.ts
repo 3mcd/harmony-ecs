@@ -61,27 +61,26 @@ function resize() {
   sx = canvas.width / rect.width
   sy = canvas.height / rect.height
 }
-resize()
 
-window.addEventListener("resize", resize)
-
-canvas.addEventListener("mousemove", event => {
+function onMouseMove(event: MouseEvent) {
   const x = Math.round((event.clientX - rect.left) * sx)
   const y = Math.round((event.clientY - rect.top) * sy)
   for (let i = 0; i < noise.length; i++) {
     const [e, [p]] = noise[i]!
     for (let j = 0; j < e.length; j++) {
       if (p.x[j] === x && p.y[j] === y) {
-        Entity.set(
-          world,
-          e[j]!,
-          [Fixed],
-          [buf32[y * SIZE + x]! | (100 << 16) | (50 << 8)],
-        )
+        Entity.set(world, e[j]!, PointFixed, [
+          ,
+          buf32[y * SIZE + x]! | (100 << 16) | (50 << 8),
+        ])
         break
       }
     }
   }
-})
+}
 
+window.addEventListener("resize", resize)
+canvas.addEventListener("mousemove", onMouseMove)
+
+resize()
 step()

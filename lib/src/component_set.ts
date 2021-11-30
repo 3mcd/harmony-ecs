@@ -1,5 +1,4 @@
 import * as Archetype from "./archetype"
-import * as Component from "./component"
 import * as Debug from "./debug"
 import * as Schema from "./schema"
 import * as Type from "./type"
@@ -15,7 +14,7 @@ export function make(world: World.Struct, type: Type.Struct, init: Init): Struct
   for (let i = 0; i < type.length; i++) {
     const id = type[i]
     Debug.invariant(id !== undefined)
-    values[id] = init[i] ?? Component.expressSchema(World.findSchemaById(world, id))
+    values[id] = init[i]
   }
   return values
 }

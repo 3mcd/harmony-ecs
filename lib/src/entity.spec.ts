@@ -18,11 +18,12 @@ describe("Entity", () => {
       const world = World.make(1)
       const Type = [
         Schema.make(world, { squad: Format.uint8 }),
+        Schema.makeTag(world),
         Schema.makeBinary(world, Format.uint8),
         Schema.makeBinary(world, { x: Format.float64, y: Format.float64 }),
       ]
       const entity = Entity.make(world, Type)
-      const data = [{ squad: 0 }, 0, { x: 0, y: 0 }]
+      const data = [{ squad: 0 }, undefined, 0, { x: 0, y: 0 }]
       expect(Entity.get(world, entity, Type)).toEqual(data)
     })
   })
@@ -32,11 +33,12 @@ describe("Entity", () => {
       const world = World.make(1)
       const Type = [
         Schema.make(world, { squad: Format.uint8 }),
+        Schema.makeTag(world),
         Schema.makeBinary(world, Format.uint8),
         Schema.makeBinary(world, { x: Format.float64, y: Format.float64 }),
       ]
       const entity = Entity.make(world, Type)
-      const data = [{ squad: 1 }, 9, { x: 10, y: 11 }]
+      const data = [{ squad: 1 }, , 9, { x: 10, y: 11 }]
       Entity.set(world, entity, Type, data)
       expect(Entity.get(world, entity, Type)).toEqual(data)
     })
