@@ -24,9 +24,7 @@ export function expressNativeShape<$Shape extends Schema.Shape<Schema.AnyNativeS
   }
   const object: { [key: string]: unknown } = {}
   for (const key in shape) {
-    object[key] = Schema.isFormat(shape)
-      ? 0
-      : expressNativeShape(shape[key] as unknown as Schema.Shape<Schema.AnyNativeSchema>)
+    object[key] = 0
   }
   return object as Archetype.NativeData<$Shape>
 }
@@ -44,11 +42,11 @@ export function expressSchema<$Schema extends Schema.AnySchema>(schema: $Schema)
   }
 }
 
-export function expressType<$Signature extends Type.Struct>(
+export function expressType<$Type extends Type.Struct>(
   world: World.Struct,
-  type: $Signature,
-): Archetype.RowData<$Signature> {
+  type: $Type,
+): Archetype.RowData<$Type> {
   return type.map(id =>
     expressSchema(World.findSchemaById(world, id)),
-  ) as unknown as Archetype.RowData<$Signature>
+  ) as unknown as Archetype.RowData<$Type>
 }

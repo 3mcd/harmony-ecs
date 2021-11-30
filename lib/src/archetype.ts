@@ -97,11 +97,11 @@ export type Column<$SchemaId extends Schema.Id = Schema.Id> = $SchemaId extends 
   ? ColumnOfSchema<$Schema>
   : never
 
-export type Store<$Signature extends Type.Struct> = {
-  [K in keyof $Signature]: $Signature[K] extends Schema.Id ? Column<$Signature[K]> : never
+export type Store<$Type extends Type.Struct> = {
+  [K in keyof $Type]: $Type[K] extends Schema.Id ? Column<$Type[K]> : never
 }
 
-export type Struct<$Signature extends Type.Struct = Type.Struct> = {
+export type Struct<$Type extends Type.Struct = Type.Struct> = {
   edgesSet: Struct[]
   edgesUnset: Struct[]
   entities: Entity.Id[]
@@ -110,12 +110,12 @@ export type Struct<$Signature extends Type.Struct = Type.Struct> = {
   real: boolean
   onTableInsert: Signal.Struct<Struct>
   onRealize: Signal.Struct<void>
-  store: Store<$Signature>
-  type: $Signature
+  store: Store<$Type>
+  type: $Type
 }
 
-export type RowData<$Signature extends Type.Struct> = {
-  [K in keyof $Signature]: $Signature[K] extends Schema.Id ? Data<$Signature[K]> : never
+export type RowData<$Type extends Type.Struct> = {
+  [K in keyof $Type]: $Type[K] extends Schema.Id ? Data<$Type[K]> : never
 }
 
 const ArrayBufferConstructor = globalThis.SharedArrayBuffer ?? globalThis.ArrayBuffer
@@ -151,19 +151,19 @@ function makeColumn(schema: Schema.AnySchema, size: number): Column {
   return { kind: schema.kind, schema, data } as Column
 }
 
-export function makeStore<$Signature extends Type.Struct>(
+export function makeStore<$Type extends Type.Struct>(
   world: World.Struct,
-  type: $Signature,
-): Store<$Signature> {
+  type: $Type,
+): Store<$Type> {
   return type.map(id =>
     makeColumn(World.findSchemaById(world, id), world.size),
-  ) as unknown as Store<$Signature>
+  ) as unknown as Store<$Type>
 }
 
-export function makeInner<$Signature extends Type.Struct>(
-  type: $Signature,
-  store: Store<$Signature>,
-): Struct<$Signature> {
+export function makeInner<$Type extends Type.Struct>(
+  type: $Type,
+  store: Store<$Type>,
+): Struct<$Type> {
   Type.invariantNormalized(type)
   const layout: number[] = []
   for (let i = 0; i < type.length; i++) {
@@ -185,10 +185,10 @@ export function makeInner<$Signature extends Type.Struct>(
   }
 }
 
-export function make<$Signature extends Type.Struct>(
+export function make<$Type extends Type.Struct>(
   world: World.Struct,
-  type: $Signature,
-): Struct<$Signature> {
+  type: $Type,
+): Struct<$Type> {
   const store = makeStore(world, type)
   return makeInner(type, store)
 }
@@ -386,10 +386,10 @@ export function move(
   remove(prev, entity)
 }
 
-export function read<$Signature extends Type.Struct>(
+export function read<$Type extends Type.Struct>(
   entity: Entity.Id,
   archetype: Struct,
-  layout: $Signature,
+  layout: $Type,
   out: unknown[],
 ) {
   const index = archetype.entityIndex[entity]
@@ -419,7 +419,7 @@ export function read<$Signature extends Type.Struct>(
     }
     out.push(value)
   }
-  return out as unknown as RowData<$Signature>
+  return out as unknown as RowData<$Type>
 }
 
 export function write(

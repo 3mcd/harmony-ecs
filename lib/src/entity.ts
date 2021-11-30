@@ -54,10 +54,10 @@ export function reserve(world: World.Struct, entity = world.entityHead) {
  * Entity.make(world, [Position, Velocity], [, { x: -10, y: 42 }])
  * ```
  */
-export function make<$Signature extends Type.Struct>(
+export function make<$Type extends Type.Struct>(
   world: World.Struct,
-  layout = [] as unknown as $Signature,
-  init = [] as unknown as ComponentSet.Init<$Signature>,
+  layout = [] as unknown as $Type,
+  init = [] as unknown as ComponentSet.Init<$Type>,
 ) {
   const entity = reserve(world)
   const components = ComponentSet.make(world, layout, init)
@@ -86,10 +86,10 @@ export function make<$Signature extends Type.Struct>(
  * const [health, stats] = Entity.get(world, entity, Player, results)
  * ```
  */
-export function get<$Signature extends Type.Struct>(
+export function get<$Type extends Type.Struct>(
   world: World.Struct,
   entity: Id,
-  layout: $Signature,
+  layout: $Type,
   out: unknown[] = [],
 ) {
   const archetype = World.getEntityArchetype(world, entity)
@@ -119,11 +119,11 @@ export function get<$Signature extends Type.Struct>(
  * Entity.set(world, entity, [Health, Stamina], [99])
  * ```
  */
-export function set<$Signature extends Type.Struct>(
+export function set<$Type extends Type.Struct>(
   world: World.Struct,
   entity: Id,
-  layout: $Signature,
-  init = [] as unknown as ComponentSet.Init<$Signature>,
+  layout: $Type,
+  init = [] as unknown as ComponentSet.Init<$Type>,
 ) {
   const components = ComponentSet.make(world, layout, init)
   const prevArchetype = World.getEntityArchetype(world, entity)
@@ -152,10 +152,10 @@ export function set<$Signature extends Type.Struct>(
  * Entity.unset(world, entity, [Health, Faction])
  * ```
  */
-export function unset<$Signature extends Type.Struct>(
+export function unset<$Type extends Type.Struct>(
   world: World.Struct,
   entity: Id,
-  layout: $Signature,
+  layout: $Type,
 ) {
   const prevArchetype = World.getEntityArchetype(world, entity)
   const nextArchetype = Graph.findOrMakeArchetype(

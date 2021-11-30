@@ -27,11 +27,11 @@ function ensureEntityDelta(cache: Struct, entity: Entity.Id) {
   return delta
 }
 
-export function set<$Signature extends Type.Struct>(
+export function set<$Type extends Type.Struct>(
   cache: Struct,
   entity: Entity.Id,
   type: Type.Struct,
-  data: Archetype.RowData<$Signature>,
+  data: Archetype.RowData<$Type>,
 ) {
   const delta = ensureEntityDelta(cache, entity)
   if (delta === Symbols.$tombstone) return

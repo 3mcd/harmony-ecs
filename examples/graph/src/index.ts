@@ -13,7 +13,7 @@ function makeTypeId(type: Type.Struct) {
 }
 
 const $log = document.getElementById("log")!
-const $Signature = document.getElementById("type") as HTMLInputElement
+const $Type = document.getElementById("type") as HTMLInputElement
 const $network = document.getElementById("network")!
 const $insert = document.getElementById("insert")!
 
@@ -49,7 +49,7 @@ onTableInsert(world.rootArchetype)
 let max = 0
 
 function onInsertEntity() {
-  const type = Array.from($Signature.value.split(/[\s,]+/).map(Number))
+  const type = Array.from($Type.value.split(/[\s,]+/).map(Number))
     .sort((a, b) => a - b)
     .map(id => schemas[id]!)
   const id = makeTypeId(type)
@@ -67,10 +67,10 @@ function onInsertEntity() {
     }),
   )
   $log.textContent += `${id}\n`
-  $Signature.value = ""
+  $Type.value = ""
 }
 
-$Signature.addEventListener("keydown", e => {
+$Type.addEventListener("keydown", e => {
   if (e.key === "Enter") {
     onInsertEntity()
   }

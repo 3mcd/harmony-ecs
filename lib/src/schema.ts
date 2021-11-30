@@ -21,7 +21,7 @@ export type NativeScalarSchema<$Shape extends Format.Format = Format.Format> = {
 }
 
 /** @internal */
-type NativeObjectShape = { [key: string]: Format.Format | Shape<NativeObjectSchema> }
+type NativeObjectShape = { [key: string]: Format.Format }
 
 /** @internal */
 export type NativeObjectSchema<$Shape extends NativeObjectShape = NativeObjectShape> = {
@@ -62,7 +62,7 @@ export type ComplexSchema = AnyBinarySchema | AnyNativeSchema
 /** @internal */
 export type AnySchema = ComplexSchema | TagSchema
 /** @internal */
-export type Shape<$Signature extends { shape: unknown }> = $Signature["shape"]
+export type Shape<$Type extends { shape: unknown }> = $Type["shape"]
 
 /**
  * An entity id wrapped in a generic type that allows Harmony to infer the

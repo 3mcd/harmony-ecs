@@ -6,6 +6,7 @@ import * as Schema from "./schema"
 import * as Signal from "./signal"
 import * as Type from "./type"
 import * as World from "./world"
+import * as Symbols from "./symbols"
 
 /**
  * Component data sorted to match a query selector layout.
@@ -31,9 +32,9 @@ import * as World from "./world"
  * ]
  * ```
  */
-export type RecordData<$Signature extends Type.Struct> = {
-  [K in keyof $Signature]: $Signature[K] extends Schema.Id
-    ? Archetype.Column<$Signature[K]>["data"]
+export type RecordData<$Type extends Type.Struct> = {
+  [K in keyof $Type]: $Type[K] extends Schema.Id
+    ? Archetype.Column<$Type[K]>["data"]
     : never
 }
 
@@ -51,9 +52,9 @@ export type RecordData<$Signature extends Type.Struct> = {
  * }
  * ```
  */
-export type Record<$Signature extends Type.Struct> = [
+export type Record<$Type extends Type.Struct> = [
   entities: ReadonlyArray<Entity.Id>,
-  data: RecordData<$Signature>,
+  data: RecordData<$Type>,
 ]
 
 /**
@@ -69,16 +70,18 @@ export type Record<$Signature extends Type.Struct> = [
  * }
  * ```
  */
-export type Struct<$Signature extends Type.Struct = Type.Struct> = Record<$Signature>[]
+export type Struct<$Type extends Type.Struct = Type.Struct> = Record<$Type>[] & {
+  [Symbols.$type]: Type.Struct
+}
 /**
  * A function that is executed when an entity is considered by a query. Returning
  * false will exclude the entity from the query results.
  */
 export type Filter = (type: Type.Struct, archetype: Archetype.Struct) => boolean
 
-function bindArchetype<$Signature extends Type.Struct>(
-  records: Struct<$Signature>,
-  layout: $Signature,
+function bindArchetype<$Type extends Type.Struct>(
+  records: Struct<$Type>,
+  layout: $Type,
   archetype: Archetype.Struct,
 ) {
   const columns = layout.map(function findColumnDataById(id) {
@@ -88,13 +91,13 @@ function bindArchetype<$Signature extends Type.Struct>(
     Debug.invariant(column !== undefined)
     return column.data
   })
-  records.push([archetype.entities, columns as unknown as RecordData<$Signature>])
+  records.push([archetype.entities, columns as unknown as RecordData<$Type>])
 }
 
-function maybeBindArchetype<$Signature extends Type.Struct>(
-  records: Struct<$Signature>,
+function maybeBindArchetype<$Type extends Type.Struct>(
+  records: Struct<$Type>,
   type: Type.Struct,
-  layout: $Signature,
+  layout: $Type,
   archetype: Archetype.Struct,
   filters: Filter[],
 ) {
@@ -117,14 +120,14 @@ function maybeBindArchetype<$Signature extends Type.Struct>(
   }
 }
 
-function makeStaticQueryInternal<$Signature extends Type.Struct>(
+function makeStaticQueryInternal<$Type extends Type.Struct>(
   type: Type.Struct,
-  layout: $Signature,
+  layout: $Type,
   archetype: Archetype.Struct,
   filters: Filter[],
-): Struct<$Signature> {
-  const query: Struct<$Signature> = []
+): Struct<$Type> {
   Type.invariantNormalized(type)
+  const query: Struct<$Type> = Object.assign([], { [Symbols.$type]: type })
   maybeBindArchetype(query, type, layout, archetype, filters)
   Graph.traverse(archetype, function maybeBindNextArchetype(archetype) {
     maybeBindArchetype(query, type, layout, archetype, filters)
@@ -152,11 +155,11 @@ function makeStaticQueryInternal<$Signature extends Type.Struct>(
  * }
  * ```
  */
-export function make<$Signature extends Type.Struct>(
+export function make<$Type extends Type.Struct>(
   world: World.Struct,
-  layout: $Signature,
+  layout: $Type,
   ...filters: Filter[]
-): Struct<$Signature> {
+): Struct<$Type> {
   const type = Type.normalize(layout)
   const identity = Graph.findOrMakeArchetype(world, type)
   const query = makeStaticQueryInternal(type, layout, identity, filters)
@@ -183,11 +186,11 @@ export function make<$Signature extends Type.Struct>(
  * points.reduce((a, [e]) => a + e.length, 0) // 1 (did not detect (P, V) archetype)
  * ```
  */
-export function makeStatic<$Signature extends Type.Struct>(
+export function makeStatic<$Type extends Type.Struct>(
   world: World.Struct,
-  layout: $Signature,
+  layout: $Type,
   ...filters: Filter[]
-): Struct<$Signature> {
+): Struct<$Type> {
   const type = Type.normalize(layout)
   const identity = Graph.findOrMakeArchetype(world, type)
   return makeStaticQueryInternal(type, layout, identity, filters)

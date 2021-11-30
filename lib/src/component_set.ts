@@ -5,8 +5,8 @@ import * as Type from "./type"
 import * as World from "./world"
 
 export type Struct = (Archetype.Data<Schema.Id> | undefined)[]
-export type Init<$Signature extends Type.Struct = Type.Struct> = {
-  [K in keyof $Signature]?: Archetype.RowData<$Signature>[K]
+export type Init<$Type extends Type.Struct = Type.Struct> = {
+  [K in keyof $Type]?: Archetype.RowData<$Type>[K]
 }
 
 export function make(world: World.Struct, type: Type.Struct, init: Init): Struct {
