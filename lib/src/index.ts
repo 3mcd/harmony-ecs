@@ -43,4 +43,7 @@ export * as Symbols from "./symbols"
 /** @internal */
 export * as Debug from "./debug"
 
+/**
+ * An enum of Harmony's supported data types.
+ */
 export * as Format from "./format"
