@@ -145,7 +145,7 @@ export async function lockAsync(lock: Struct, index = lock.index) {
   }
 }
 
-export async function lockThreadAware(lock: Struct, index = lock.index) {
+export function lockThreadAware(lock: Struct, index = lock.index) {
   return IS_WORKER ? _lock(lock, index) : lockAsync(lock, index)
 }
 
