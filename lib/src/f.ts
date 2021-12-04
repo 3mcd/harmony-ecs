@@ -1,3 +1,5 @@
+import * as Lock from "./lock"
+
 export declare class Opaque<$Value> {
   protected value: $Value
 }
@@ -7,7 +9,7 @@ type Sparse<$Value> = $Value[]
 /**
  * An entity identifier.
  */
-type Id<$Value = never> = number & Opaque<$Value>
+export type Id<$Value = never> = number & Opaque<$Value>
 
 /**
  * Extract the encoded value of an entity identifier.
@@ -17,7 +19,7 @@ type ValueOf<$Id> = $Id extends Id<infer _> ? _ : never
 /**
  * A type signature that characterizes an entity.
  */
-type Type = Id[]
+export type Type = Id[]
 
 /**
  * A densely packed vector of entity data.
@@ -43,6 +45,7 @@ export type Registry = {
   entityPositionIndex: Uint32Array
   entityGenerationIndex: Uint16Array
   tableIndex: Sparse<Table>
+  lock: Lock.Struct
 }
 
 function assert(condition: boolean): asserts condition {
@@ -99,17 +102,15 @@ export function makeRegistry(entityMax: number): Registry {
     entityPositionIndex: new Uint32Array(entityMax),
     entityGenerationIndex: new Uint16Array(entityMax),
     tableIndex: [],
+    lock: Lock.make(new SharedArrayBuffer(entityMax * Uint32Array.BYTES_PER_ELEMENT)),
   }
 }
 
-export function makeId(registry: Registry): Id {
+export async function make(registry: Registry) {
   let eid = Atomics.add(registry.entityHead, 0, 1) + 1
+  let gen = Atomics.load(registry.entityGenerationIndex, eid)
   assert(eid <= registry.entityMax)
-  return pack(eid, Atomics.load(registry.entityGenerationIndex, eid)) as Id
-}
-
-export function makeEntity(registry: Registry): Id {
-  return makeId(registry)
+  return pack(eid, gen) as Id
 }
 
 function genEq(registry: Registry, eid: number, gen: number) {
@@ -120,7 +121,7 @@ export function isAlive(registry: Registry, id: Id) {
   return genEq(registry, lo(id), hi(id))
 }
 
-export function add<$Value>(
+export async function add<$Value>(
   registry: Registry,
   id: Id,
   component: Id<$Value>,
@@ -129,36 +130,54 @@ export function add<$Value>(
   let eid = lo(id)
   let gen = hi(id)
 
-  if (!genEq(registry, eid, gen)) return
+  await Lock.lockThreadAware(registry.lock, eid)
 
-  let tableHash = Atomics.load(registry.entityIndex, eid)
-  let table = registry.tableIndex[tableHash]
+  if (genEq(registry, eid, gen)) {
+    let typeHash = registry.entityIndex[eid]
+    let table = registry.tableIndex[typeHash]
 
-  if (table !== undefined) {
-    for (let i = 0; i < table.type.length; i++) {
-      if (table.type[i] === component) return
+    if (table !== undefined) {
+      for (let i = 0; i < table.type.length; i++) {
+        if (table.type[i] === component) return
+      }
     }
+
+    let nextType = table ? typeAdd(table.type, component as Id, []) : [component as Id]
+    let nextTable = findOrMakeTable(registry.tableIndex, nextType)
+    let nextTableHash = makeTypeHash(nextTable.type)
+
+    registry.entityIndex[eid] = nextTableHash
+    registry.entityPositionIndex[eid] = tableInsert(nextTable, component, value)
   }
 
-  let nextType = table ? typeAdd(table.type, component as Id, []) : [component as Id]
-  let nextTable = findOrMakeTable(registry.tableIndex, nextType)
-  let nextTableHash = makeTypeHash(nextTable.type)
-
-  Atomics.store(registry.entityIndex, eid, nextTableHash)
-  Atomics.store(
-    registry.entityPositionIndex,
-    eid,
-    tableInsert(nextTable, component, value),
-  )
+  Lock.unlock(registry.lock)
 }
 
-export function destroy(registry: Registry, id: Id) {
+export async function has(registry: Registry, id: Id, type: Type) {
+  let eid = lo(id)
+  if (!isAlive(registry, id)) {
+    return false
+  }
+  await Lock.lockThreadAware(registry.lock, eid)
+  let typeHash = registry.entityIndex[eid]
+  let table = registry.tableIndex[typeHash]
+  // todo: optimize
+  let result = type.every(id => table.type.includes(id))
+  Lock.unlock(registry.lock)
+  return result
+}
+
+export async function destroy(registry: Registry, id: Id) {
   let eid = lo(id)
   let gen = hi(id)
 
-  if (gen !== Atomics.load(registry.entityGenerationIndex, eid)) return
+  await Lock.lockThreadAware(registry.lock, eid)
 
-  Atomics.add(registry.entityGenerationIndex, eid, 1)
+  if (gen === registry.entityGenerationIndex[eid]) {
+    registry.entityGenerationIndex[eid] = 1
+  }
+
+  Lock.unlock(registry.lock)
 }
 
 export function typeAdd(type: Type, add: Id, out: Type): Type {

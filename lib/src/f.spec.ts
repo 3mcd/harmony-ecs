@@ -1,30 +1,33 @@
-import { add, destroy, makeEntity, makeRegistry, Registry, isAlive } from "./f"
+import { add, destroy, make, makeRegistry, Registry, isAlive, has, Type } from "./f"
 
 describe("f", () => {
   describe("makeRegistry", () => {})
   describe("add", () => {
-    let registry: Registry
+    let r: Registry
     beforeEach(() => {
-      registry = makeRegistry(10)
+      r = makeRegistry(10)
     })
-    it("assigns a component to an entity", () => {
-      const entity = makeEntity(registry)
+    it("assigns a component to an entity", async () => {
+      let t: Type = []
+      const e = await make(r)
       for (let i = 0; i < 5; i++) {
-        add(registry, entity, makeEntity(registry))
+        const id = await make(r)
+        await add(r, e, id)
+        t.push(id)
       }
-      console.log(registry)
+      expect(await has(r, e, t)).toBe(true)
     })
   })
   describe("destroy", () => {
-    let registry: Registry
+    let r: Registry
     beforeEach(() => {
-      registry = makeRegistry(10)
+      r = makeRegistry(10)
     })
-    it("invalidates destroyed entity ids", () => {
-      const entity = makeEntity(registry)
-      expect(isAlive(registry, entity)).toBe(true)
-      destroy(registry, entity)
-      expect(isAlive(registry, entity)).toBe(false)
+    it("invalidates destroyed entity ids", async () => {
+      const e = await make(r)
+      expect(isAlive(r, e)).toBe(true)
+      await destroy(r, e)
+      expect(isAlive(r, e)).toBe(false)
     })
   })
 })
