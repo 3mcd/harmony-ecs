@@ -14,9 +14,9 @@ A compatibility and performance-focused Entity-Component-System (ECS) for JavaSc
 ## Features
 
 - Hybrid [SoA and AoS](https://en.wikipedia.org/wiki/AoS_and_SoA) storage
-- Complex, scalar, and tag components
 - Fast iteration and mutation [[1]](https://github.com/ddmills/js-ecs-benchmarks) [[2]](https://github.com/noctjs/ecs-benchmark)
-- Fast insert/relocate and auto-updating queries via [connected archetype graph](./graph.png)
+- Multithreading
+- Complex, scalar, and tag components
 - Compatible with third-party libraries like Three.js, Pixi, and Cannon
 
 ## Installation

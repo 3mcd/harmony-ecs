@@ -3,13 +3,40 @@ import * as Graph from "./archetype_graph"
 import * as ComponentSet from "./component_set"
 import * as Debug from "./debug"
 import * as Type from "./type"
+import * as Types from "./types"
 import * as World from "./world"
 
 /**
- * An unsigned integer between 0 and `Number.MAX_SAFE_INTEGER` that uniquely
- * identifies an entity or schema within the ECS.
+ * An entity identifier.
  */
-export type Id = number
+export type Id<$Data = unknown> = number & Types.Opaque<$Data>
+
+/**
+ * Extract the encoded value of an entity identifier.
+ */
+export type Data<$Id> = $Id extends Id<infer _> ? _ : never
+
+/**
+ * Combine the low 32 and high 20 bits of a 52-bit unsigned integer into a
+ * single value.
+ */
+export function pack<$Data>(lo: number, hi: number) {
+  return ((hi & 0x3fffff) * 0x40000000 + (lo & 0x3fffffff)) as Id<$Data>
+}
+
+/**
+ * Read the low 32 bits of a 52-bit unsigned integer.
+ */
+export function lo(n: number) {
+  return n & 0x3fffffff
+}
+
+/**
+ * Read the high 20 bits of a 52-bit unsigned integer.
+ */
+export function hi(n: number) {
+  return (n - (n & 0x3fffffff)) / 0x40000000
+}
 
 /**
  * Reserve an entity id without inserting it into the world.
@@ -183,7 +210,7 @@ export function unset<$Type extends Type.Struct>(
 export function has(world: World.Struct, entity: Id, layout: Type.Struct) {
   const archetype = World.getEntityArchetype(world, entity)
   const type = Type.normalize(layout)
-  return Type.isEqual(archetype.type, type) || Type.isSupersetOf(archetype.type, type)
+  return Type.isEqual(archetype.type, type) || Type.contains(archetype.type, type)
 }
 
 /**
