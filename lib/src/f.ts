@@ -54,14 +54,13 @@ export type Registry = {
    */
   entityHead: Uint32Array
   /**
-   * Maps entities to a unique hash of their type. Used to quickly look up an
+   * Maps entities to a hash of their current type. Used to quickly look up an
    * entity's table.
    */
   entityTypeIndex: Uint32Array
   /**
    * A lock used to temporarily reserve access to entity-specific state to the
-   * current thread. Specifically targets the entity generation, position, and
-   * type indexes.
+   * current thread. Affects the entity generation, position, and type indexes.
    */
   entityLock: Lock.Struct
   /**
@@ -73,12 +72,13 @@ export type Registry = {
    */
   entityPositionIndex: Uint32Array
   /**
-   * Maps unique type hashes to a bit which signifies whether or not a table
-   * exists for that type.
+   * Maps type hashes to a bit which signifies whether or not a table exists
+   * for that type. Used to inform other threads of the existence of a table
+   * that hasn't been shared yet.
    */
   tableCheck: Uint8Array
   /**
-   * A sparse array which maps type hashes to an entity table.
+   * Maps type hashes to an entity table.
    */
   tableIndex: Table[]
   /**
@@ -98,26 +98,48 @@ export function makeTypeHash(type: Type) {
   return h >>> 0
 }
 
+/**
+ * Combine the low 32 and high 20 bits of a 52-bit unsigned integer into a
+ * single value.
+ */
 function pack(lo: number, hi: number) {
   return (hi & 0x3fffff) * 0x40000000 + (lo & 0x3fffffff)
 }
 
+/**
+ * Read the low 32 bits of a 52-bit unsigned integer.
+ */
 function lo(n: number) {
   return n & 0x3fffffff
 }
 
+/**
+ * Read the high 20 bits of a 52-bit unsigned integer.
+ */
 function hi(n: number) {
   return (n - (n & 0x3fffffff)) / 0x40000000
 }
 
+/**
+ * Calculate the index in a table check array at which a table with the
+ * specified hash would exist.
+ */
 function calcTableCheckIndex(typeHash: number) {
   return Math.floor(typeHash / 8)
 }
 
+/**
+ * Calculate the mask used to read the specific bit for a table at an index in
+ * a table check array.
+ */
 function calcTableCheckMask(typeHash: number) {
   return 1 << typeHash % 8
 }
 
+/**
+ * Attempt to synchronously locate a table by type hash. Wait for the table if
+ * it isn't found on the current thread, but definitely exists on another.
+ */
 async function findOrWaitForTable(registry: Registry, typeHash: number) {
   let table = registry.tableIndex[typeHash]
   if (table === undefined) {
@@ -158,14 +180,12 @@ async function findOrMakeTable(registry: Registry, type: Type, createdTables: Ta
 }
 
 /**
- * Await a table created in a different thread.
+ * Wait for a table to (magically) appear. Throw if a table doesn't show up
+ * after the provided timeout.
  */
 function waitForTable(registry: Registry, typeHash: number, timeout = 1000) {
   let table = registry.tableIndex[typeHash]
-
-  if (table) {
-    return table
-  }
+  if (table) return table
 
   let startTime = performance.now()
 
