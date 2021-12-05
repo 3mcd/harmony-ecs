@@ -42,14 +42,48 @@ export type Table = {
  * The root object of a Harmony world.
  */
 export type Registry = {
+  /**
+   * Maps entities to their current generation. A generation is an integer that
+   * is incremented each time the entity is destroyed. Generations are encoded
+   * as the high 20 bits of an entity identifier. This lets Harmony recycle
+   * identifiers by invalidating existing ones when the entity is destroyed.
+   */
   entityGenerationIndex: Uint16Array
+  /**
+   * The next entity to attempt to reserve when creating a new entity.
+   */
   entityHead: Uint32Array
+  /**
+   * Maps entities to a unique hash of their type. Used to quickly look up an
+   * entity's table.
+   */
   entityTypeIndex: Uint32Array
+  /**
+   * A lock used to temporarily reserve access to entity-specific state to the
+   * current thread. Specifically targets the entity generation, position, and
+   * type indexes.
+   */
   entityLock: Lock.Struct
+  /**
+   * The maximum number of entities supported by the registry.
+   */
   entityMax: number
+  /**
+   * Maps entities to their offset within their current table.
+   */
   entityPositionIndex: Uint32Array
+  /**
+   * Maps unique type hashes to a bit which signifies whether or not a table
+   * exists for that type.
+   */
   tableCheck: Uint8Array
+  /**
+   * A sparse array which maps type hashes to an entity table.
+   */
   tableIndex: Table[]
+  /**
+   * A lock used to temporarily reserve access to the creation of new tables.
+   */
   tableLock: Lock.Struct
 }
 
