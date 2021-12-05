@@ -1,12 +1,14 @@
-import * as Lock from "./lock"
 import * as Debug from "./debug"
-import * as Signal from "./signal"
+import * as Lock from "./lock"
+
+let performance =
+  "performance" in globalThis
+    ? globalThis.performance
+    : (await import("perf_hooks")).performance
 
 export declare class Opaque<$Data> {
   protected value: $Data
 }
-
-export type Sparse<$Data> = $Data[]
 
 /**
  * An entity identifier.
@@ -29,8 +31,7 @@ export type Type = Id[]
 export type Column = unknown[]
 
 /**
- * A table of entity data for entityIndex of a specific type. Linked by an
- * adjacency index to other tableIndex.
+ * A table of entity data for entities of a specific type.
  */
 export type Table = {
   type: Type
@@ -41,17 +42,15 @@ export type Table = {
  * The root object of a Harmony world.
  */
 export type Registry = {
-  entityMax: number
+  entityGenerationIndex: Uint16Array
   entityHead: Uint32Array
-  entityLocationIndex: Uint32Array
+  entityTypeIndex: Uint32Array
+  entityLock: Lock.Struct
+  entityMax: number
   entityPositionIndex: Uint32Array
-  entityGenIndex: Uint16Array
-  lock: Lock.Struct
-  tableIndex: Sparse<Table>
-}
-
-export type Signals = {
-  onTableAdd: Signal.Struct<Table>
+  tableCheck: Uint8Array
+  tableIndex: Table[]
+  tableLock: Lock.Struct
 }
 
 const FNV1_32A_INIT = 0x811c9dc5
@@ -77,17 +76,80 @@ function hi(n: number) {
   return (n - (n & 0x3fffffff)) / 0x40000000
 }
 
-function findOrMakeTable(registry: Registry, type: Type, signals?: Signals) {
-  let typeHash = makeTypeHash(type)
+function calcTableCheckIndex(typeHash: number) {
+  return Math.floor(typeHash / 8)
+}
+
+function calcTableCheckMask(typeHash: number) {
+  return 1 << typeHash % 8
+}
+
+async function findOrWaitForTable(registry: Registry, typeHash: number) {
   let table = registry.tableIndex[typeHash]
   if (table === undefined) {
-    table = makeTable(type)
-    registry.tableIndex[typeHash] = table
-    if (signals !== undefined) {
-      Signal.dispatch(signals.onTableAdd, table)
+    let tableCheckIndex = calcTableCheckIndex(typeHash)
+    let tableCheckMask = calcTableCheckMask(typeHash)
+    if ((registry.tableCheck[tableCheckIndex] & tableCheckMask) !== 0) {
+      table = await waitForTable(registry, typeHash)
     }
   }
   return table
+}
+
+/**
+ * Locate or create a table in a thread-safe manner.
+ */
+async function findOrMakeTable(registry: Registry, type: Type, createdTables: Table[]) {
+  Lock.lockThreadAware(registry.tableLock)
+
+  let typeHash = makeTypeHash(type)
+  let table = registry.tableIndex[typeHash]
+
+  if (table === undefined) {
+    let tableCheckIndex = calcTableCheckIndex(typeHash)
+    let tableCheckMask = calcTableCheckMask(typeHash)
+    if ((registry.tableCheck[tableCheckIndex] & tableCheckMask) !== 0) {
+      table = await waitForTable(registry, typeHash)
+    } else {
+      table = makeTable(type)
+      registry.tableCheck[tableCheckIndex] |= tableCheckMask
+      registry.tableIndex[typeHash] = table
+      createdTables.push(table)
+    }
+  }
+
+  Lock.unlock(registry.tableLock)
+
+  return table
+}
+
+/**
+ * Await a table created in a different thread.
+ */
+function waitForTable(registry: Registry, typeHash: number, timeout = 1000) {
+  let table = registry.tableIndex[typeHash]
+
+  if (table) {
+    return table
+  }
+
+  let startTime = performance.now()
+
+  return new Promise<Table>(function checkTableExecutor(resolve, reject) {
+    function checkTableReceived() {
+      let table = registry.tableIndex[typeHash]
+      if (table !== undefined) {
+        resolve(table)
+      } else {
+        if (startTime - performance.now() > timeout) {
+          reject()
+        } else {
+          setImmediate(checkTableReceived)
+        }
+      }
+    }
+    checkTableReceived()
+  })
 }
 
 function makeTable(type: Type): Table {
@@ -98,129 +160,144 @@ function makeTable(type: Type): Table {
 }
 
 export function makeRegistry(entityMax: number): Registry {
+  let size32 = entityMax * Uint32Array.BYTES_PER_ELEMENT
+  let size16 = entityMax * Uint16Array.BYTES_PER_ELEMENT
   // initialize shared memory
-  const sharedEntityHead = new SharedArrayBuffer(4)
-  const sharedEntityIndex = new SharedArrayBuffer(
-    entityMax * Uint32Array.BYTES_PER_ELEMENT,
-  )
-  const sharedEntityLocIndex = new SharedArrayBuffer(
-    entityMax * Uint32Array.BYTES_PER_ELEMENT,
-  )
-  const sharedEntityGenIndex = new SharedArrayBuffer(
-    entityMax * Uint16Array.BYTES_PER_ELEMENT,
-  )
-  const sharedLock = new SharedArrayBuffer(entityMax * Uint32Array.BYTES_PER_ELEMENT)
-
-  // initialize lock
-  const lock = Lock.make(sharedLock)
-  Lock.initialize(sharedLock, 0)
+  let memEntityGenerationIndex = new SharedArrayBuffer(size16)
+  let memEntityHead = new SharedArrayBuffer(Uint32Array.BYTES_PER_ELEMENT)
+  let memEntityIndex = new SharedArrayBuffer(size32)
+  let memEntityLock = new SharedArrayBuffer(size32)
+  let memEntityPositionIndex = new SharedArrayBuffer(size32)
+  let memTableCheck = new SharedArrayBuffer(0xffffffff / 8)
+  let memTableLock = new SharedArrayBuffer(Uint32Array.BYTES_PER_ELEMENT)
+  // initialize locks
+  let entityLock = Lock.make(memEntityLock)
+  let tableLock = Lock.make(memTableLock)
+  Lock.initialize(memEntityLock, 0)
+  Lock.initialize(memTableLock, 0)
 
   return {
-    entityGenIndex: new Uint16Array(sharedEntityGenIndex),
-    entityHead: new Uint32Array(sharedEntityHead),
-    entityLocationIndex: new Uint32Array(sharedEntityIndex),
-    entityPositionIndex: new Uint32Array(sharedEntityLocIndex),
+    entityGenerationIndex: new Uint16Array(memEntityGenerationIndex),
+    entityHead: new Uint32Array(memEntityHead),
+    entityLock,
     entityMax,
-    lock,
+    entityPositionIndex: new Uint32Array(memEntityPositionIndex),
+    entityTypeIndex: new Uint32Array(memEntityIndex),
+    tableCheck: new Uint8Array(memTableCheck),
     tableIndex: [],
+    tableLock,
   }
 }
+
+const ENTITY_FREE = 0
+const ENTITY_RESERVED = 1
 
 /**
  * Make an entity.
  */
 export async function make(registry: Registry) {
+  let id: Id | undefined
   // Not sure if this is thread-safe. May need to place a lock on the entire
-  // entity index
+  // registry
   for (let i = 0; i < registry.entityMax; i++) {
     // Incrementing the uint32 will wrap around to 0 once we hit the maximum
     // 32-bit integer value
-    let eid = Atomics.add(registry.entityHead, 0, 1) + 1
-    let loc = Atomics.load(registry.entityLocationIndex, eid)
-    if (loc === 0) {
+    let entityId = Atomics.add(registry.entityHead, 0, 1) + 1
+    Lock.lockThreadAware(registry.entityLock, entityId)
+    let entityTypeHash = registry.entityTypeIndex[entityId]
+    let hit = entityTypeHash === ENTITY_FREE
+    if (hit) {
       // Reserve id
-      Atomics.store(registry.entityLocationIndex, eid, 1)
-      return pack(eid, Atomics.load(registry.entityGenIndex, eid)) as Id
+      registry.entityTypeIndex[entityId] = ENTITY_RESERVED
+      id = pack(entityId, registry.entityGenerationIndex[entityId]) as Id
     }
+    Lock.unlock(registry.entityLock)
+    if (hit) break
   }
 
-  throw new Error("Failed to create entity: all entity identifiers are in use")
+  Debug.assert(
+    id !== undefined,
+    "Failed to create entity: all entity identifiers are in use",
+  )
+
+  return id
 }
 
-function genEq(registry: Registry, eid: number, gen: number) {
-  return gen === Atomics.load(registry.entityGenIndex, eid)
+function ofGeneration(registry: Registry, entityId: number, entityGen: number) {
+  return entityGen === Atomics.load(registry.entityGenerationIndex, entityId)
 }
 
 export function isAlive(registry: Registry, id: Id) {
-  return genEq(registry, lo(id), hi(id))
+  return ofGeneration(registry, lo(id), hi(id))
 }
 
 export async function add<$Data>(
   registry: Registry,
   id: Id,
   component: Id<$Data>,
-  value?: $Data,
-  signals?: Signals,
+  value: $Data,
+  createdTables: Table[],
 ) {
-  Debug.assert(isAlive(registry, id))
+  let entityId = lo(id)
+  let entityGen = hi(id)
 
-  let eid = lo(id)
-  let gen = hi(id)
+  await Lock.lockThreadAware(registry.entityLock, entityId)
 
-  await Lock.lockThreadAware(registry.lock, eid)
+  Debug.assert(ofGeneration(registry, entityId, entityGen))
 
-  if (genEq(registry, eid, gen)) {
-    let typeHash = registry.entityLocationIndex[eid]
-    let table = registry.tableIndex[typeHash]
+  let typeHash = registry.entityTypeIndex[entityId]
+  let table: Table | undefined
 
-    if (table !== undefined) {
-      for (let i = 0; i < table.type.length; i++) {
-        if (table.type[i] === component) return
-      }
+  // If the entity has a type (i.e. one or more components)
+  if (typeHash !== ENTITY_RESERVED && typeHash !== ENTITY_FREE) {
+    table = await findOrWaitForTable(registry, typeHash)
+    for (let i = 0; i < table.type.length; i++) {
+      if (table.type[i] === component) return
     }
-
-    let nextType = table ? typeAdd(table.type, component, []) : [component]
-    let nextTypeHash = makeTypeHash(nextType)
-    let nextTable = findOrMakeTable(registry, nextType, signals)
-
-    registry.entityLocationIndex[eid] = nextTypeHash
-    registry.entityPositionIndex[eid] = tableInsert(nextTable, component, value)
   }
 
-  Lock.unlock(registry.lock)
+  let nextType = table ? typeAdd(table.type, component, []) : [component]
+  let nextHash = makeTypeHash(nextType)
+  let nextTable = await findOrMakeTable(registry, nextType, createdTables)
+
+  registry.entityTypeIndex[entityId] = nextHash
+  registry.entityPositionIndex[entityId] = tableInsert(nextTable, component, value)
+
+  Lock.unlock(registry.entityLock)
 }
 
 export async function has(registry: Registry, id: Id, type: Type) {
-  Debug.assert(isAlive(registry, id))
+  let entityId = lo(id)
+  let entityGen = hi(id)
 
-  let eid = lo(id)
+  await Lock.lockThreadAware(registry.entityLock, entityId)
 
-  await Lock.lockThreadAware(registry.lock, eid)
+  Debug.assert(ofGeneration(registry, entityId, entityGen))
 
-  let typeHash = registry.entityLocationIndex[eid]
-  let table = registry.tableIndex[typeHash]
+  let typeHash = registry.entityTypeIndex[entityId]
+  let table = await waitForTable(registry, typeHash)
   let result = type.every(id => table.type.includes(id))
 
-  Lock.unlock(registry.lock)
+  Lock.unlock(registry.entityLock)
 
   return result
 }
 
 export async function destroy(registry: Registry, id: Id) {
-  Debug.assert(isAlive(registry, id))
+  let entityId = lo(id)
+  let entityGen = hi(id)
 
-  let eid = lo(id)
-  let gen = hi(id)
+  await Lock.lockThreadAware(registry.entityLock, entityId)
 
-  await Lock.lockThreadAware(registry.lock, eid)
+  Debug.assert(ofGeneration(registry, entityId, entityGen))
 
-  if (gen === registry.entityGenIndex[eid]) {
-    registry.entityGenIndex[eid] += 1
-    registry.entityPositionIndex[eid] = 0
-    registry.entityLocationIndex[eid] = 0
+  if (entityGen === registry.entityGenerationIndex[entityId]) {
+    registry.entityGenerationIndex[entityId] += 1
+    registry.entityPositionIndex[entityId] = 0
+    registry.entityTypeIndex[entityId] = ENTITY_FREE
   }
 
-  Lock.unlock(registry.lock)
+  Lock.unlock(registry.entityLock)
 }
 
 export function typeAdd(type: Type, add: Id, out: Type): Type {

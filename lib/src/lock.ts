@@ -91,8 +91,6 @@ export type Struct = {
   index: number
 }
 
-export type StructSerialized = [sab: SharedArrayBuffer, loc: number]
-
 const IS_WORKER =
   // @ts-expect-error
   typeof globalThis.WorkerGlobalScope !== "undefined" &&
@@ -160,12 +158,4 @@ export function unlock({ array, index }: Struct) {
     Atomics.store(array, index, 0)
     Atomics.notify(array, index, 1)
   }
-}
-
-export function serialize({ array, index }: Struct) {
-  return [array.buffer, index * 4]
-}
-
-export function deserialize([sab, loc]: StructSerialized) {
-  return make(sab, loc)
 }

@@ -12,7 +12,7 @@ describe("f", () => {
       let e = await make(r)
       for (let i = 0; i < 5; i++) {
         let id = await make(r)
-        await add(r, e, id)
+        await add(r, e, id, 0, [])
         t.push(id)
       }
       expect(await has(r, e, t)).toBe(true)
