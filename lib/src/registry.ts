@@ -3,6 +3,7 @@ import * as Table from "./table"
 import * as Entity from "./entity"
 import * as Type from "./type"
 import * as Debug from "./debug"
+import * as Shape from "./shape"
 
 const ENTITY_FREE = 0
 const ENTITY_RESERVED = 1
@@ -10,7 +11,7 @@ const ENTITY_RESERVED = 1
 /**
  * The root object of a Harmony world.
  */
-export type Registry = {
+export type Struct = {
   /**
    * Maps entities to their current generation. A generation is an integer that
    * is incremented each time the entity is destroyed. Generations are encoded
@@ -37,10 +38,6 @@ export type Registry = {
    */
   entityMax: number
   /**
-   * Maps entities to their offset within their current table.
-   */
-  entityPositionIndex: Uint32Array
-  /**
    * Maps type hashes to a bit which signifies whether or not a table exists
    * for that type. Used to inform other threads of the existence of a table
    * that hasn't been shared yet.
@@ -54,9 +51,11 @@ export type Registry = {
    * A lock used to temporarily reserve access to the creation of new tables.
    */
   tableLock: Lock.Struct
+
+  shapeIndex: Shape.Struct[]
 }
 
-export function makeRegistry(entityMax: number): Registry {
+export function makeRegistry(entityMax: number): Struct {
   let size32 = entityMax * Uint32Array.BYTES_PER_ELEMENT
   let size16 = entityMax * Uint16Array.BYTES_PER_ELEMENT
   let size64 = entityMax * Float64Array.BYTES_PER_ELEMENT
@@ -64,7 +63,6 @@ export function makeRegistry(entityMax: number): Registry {
   let sharedEntityGenerationIndex = new SharedArrayBuffer(size16)
   let sharedEntityHead = new SharedArrayBuffer(Uint32Array.BYTES_PER_ELEMENT)
   let sharedEntityLock = new SharedArrayBuffer(size32)
-  let sharedEntityPositionIndex = new SharedArrayBuffer(size32)
   let sharedEntityTypeIndex = new SharedArrayBuffer(size64)
   let sharedTableCheck = new SharedArrayBuffer(0xffffffff / 8)
   let sharedTableLock = new SharedArrayBuffer(Uint32Array.BYTES_PER_ELEMENT)
@@ -79,11 +77,11 @@ export function makeRegistry(entityMax: number): Registry {
     entityHead: new Uint32Array(sharedEntityHead),
     entityLock,
     entityMax,
-    entityPositionIndex: new Uint32Array(sharedEntityPositionIndex),
     entityTypeIndex: new Float64Array(sharedEntityTypeIndex),
     tableCheck: new Uint8Array(sharedTableCheck),
     tableIndex: [],
     tableLock,
+    shapeIndex: [],
   }
 }
 
@@ -104,57 +102,10 @@ function calcTableCheckMask(typeHash: number) {
 }
 
 /**
- * Attempt to synchronously locate a table by type hash. Wait for the table if
- * it isn't found on the current thread, but definitely exists on another.
- */
-async function findOrWaitForTable(registry: Registry, typeHash: number) {
-  let table = registry.tableIndex[typeHash]
-  if (table === undefined) {
-    let tableCheckIndex = calcTableCheckIndex(typeHash)
-    let tableCheckMask = calcTableCheckMask(typeHash)
-    if ((registry.tableCheck[tableCheckIndex] & tableCheckMask) !== 0) {
-      table = await waitForTable(registry, typeHash)
-    }
-  }
-  return table
-}
-
-/**
- * Locate or create a table in a thread-safe manner.
- */
-async function findOrMakeTable(
-  registry: Registry,
-  type: Type.Struct,
-  createdTables: Table.Struct[],
-) {
-  Lock.lockThreadAware(registry.tableLock)
-
-  let typeHash = Type.hash(type)
-  let table = registry.tableIndex[typeHash]
-
-  if (table === undefined) {
-    let tableCheckIndex = calcTableCheckIndex(typeHash)
-    let tableCheckMask = calcTableCheckMask(typeHash)
-    if ((registry.tableCheck[tableCheckIndex] & tableCheckMask) !== 0) {
-      table = await waitForTable(registry, typeHash)
-    } else {
-      table = Table.make(type)
-      registry.tableCheck[tableCheckIndex] |= tableCheckMask
-      registry.tableIndex[typeHash] = table
-      createdTables.push(table)
-    }
-  }
-
-  Lock.unlock(registry.tableLock)
-
-  return table
-}
-
-/**
  * Wait for a table to (magically) appear. Throw if a table doesn't show up
  * after the provided timeout.
  */
-function waitForTable(registry: Registry, typeHash: number, timeout = 1000) {
+function waitForTable(registry: Struct, typeHash: number, timeout = 1000) {
   let table = registry.tableIndex[typeHash]
   if (table) return table
 
@@ -178,9 +129,56 @@ function waitForTable(registry: Registry, typeHash: number, timeout = 1000) {
 }
 
 /**
+ * Attempt to synchronously locate a table by type hash. Wait for the table if
+ * it isn't found on the current thread, but definitely exists on another.
+ */
+async function findOrWaitForTable(registry: Struct, typeHash: number) {
+  let table = registry.tableIndex[typeHash]
+  if (table === undefined) {
+    let tableCheckIndex = calcTableCheckIndex(typeHash)
+    let tableCheckMask = calcTableCheckMask(typeHash)
+    if ((registry.tableCheck[tableCheckIndex] & tableCheckMask) !== 0) {
+      table = await waitForTable(registry, typeHash)
+    }
+  }
+  return table
+}
+
+/**
+ * Locate or create a table in a thread-safe manner.
+ */
+async function findOrMakeTable(
+  registry: Struct,
+  type: Entity.Id<Shape.Struct>[],
+  createdTables: Table.Struct[],
+) {
+  Lock.lockThreadAware(registry.tableLock)
+
+  let typeHash = Type.hash(type)
+  let table = registry.tableIndex[typeHash]
+
+  if (table === undefined) {
+    let tableCheckIndex = calcTableCheckIndex(typeHash)
+    let tableCheckMask = calcTableCheckMask(typeHash)
+    if ((registry.tableCheck[tableCheckIndex] & tableCheckMask) !== 0) {
+      table = await waitForTable(registry, typeHash)
+    } else {
+      table = Table.make(type, registry.entityMax, type.map(id => registry.shapeIndex[id]))
+      registry.tableCheck[tableCheckIndex] |= tableCheckMask
+      registry.tableIndex[typeHash] = table
+      createdTables.push(table)
+    }
+  }
+
+  Lock.unlock(registry.tableLock)
+
+  return table
+}
+
+/**
  * Make an entity.
  */
-export async function make(registry: Registry) {
+export async function make(registry: Struct) {
   let id: Entity.Id | undefined
   // Not sure if this is thread-safe. May need to place a lock on the entire
   // registry
@@ -208,19 +206,19 @@ export async function make(registry: Registry) {
   return id
 }
 
-function ofGeneration(registry: Registry, entityId: number, entityGen: number) {
+function ofGeneration(registry: Struct, entityId: number, entityGen: number) {
   return entityGen === Atomics.load(registry.entityGenerationIndex, entityId)
 }
 
-export function isAlive(registry: Registry, id: Entity.Id) {
+export function isAlive(registry: Struct, id: Entity.Id) {
   return ofGeneration(registry, Entity.lo(id), Entity.hi(id))
 }
 
-export async function add<$Data>(
-  registry: Registry,
+export async function add(
+  registry: Struct,
   id: Entity.Id,
-  component: Entity.Id<$Data>,
-  value: $Data,
+  component: Entity.Id<Shape.Struct>,
+  value: number,
   createdTables: Table.Struct[],
 ) {
   let entityId = Entity.lo(id)
@@ -246,12 +244,12 @@ export async function add<$Data>(
   let nextTable = await findOrMakeTable(registry, nextType, createdTables)
 
   registry.entityTypeIndex[entityId] = nextHash
-  registry.entityPositionIndex[entityId] = Table.insert(nextTable, component, value)
+  Table.insert(nextTable, [id, value])
 
   Lock.unlock(registry.entityLock)
 }
 
-export async function has(registry: Registry, id: Entity.Id, type: Type.Struct) {
+export async function has(registry: Struct, id: Entity.Id, type: Type.Struct) {
   let entityId = Entity.lo(id)
   let entityGen = Entity.hi(id)
 
@@ -268,7 +266,7 @@ export async function has(registry: Registry, id: Entity.Id, type: Type.Struct) 
   return result
 }
 
-export async function destroy(registry: Registry, id: Entity.Id) {
+export async function destroy(registry: Struct, id: Entity.Id) {
   let entityId = Entity.lo(id)
   let entityGen = Entity.hi(id)
 
@@ -278,9 +276,10 @@ export async function destroy(registry: Registry, id: Entity.Id) {
 
   if (entityGen === registry.entityGenerationIndex[entityId]) {
     registry.entityGenerationIndex[entityId] += 1
-    registry.entityPositionIndex[entityId] = 0
     registry.entityTypeIndex[entityId] = ENTITY_FREE
   }
 
   Lock.unlock(registry.entityLock)
 }
+
+export function

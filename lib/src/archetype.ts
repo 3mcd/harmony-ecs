@@ -10,13 +10,13 @@ import * as World from "./world"
 import * as ComponentSet from "./component_set"
 
 export type BinaryData<$Shape extends Schema.Shape<Schema.AnyBinarySchema>> =
-  $Shape extends Format.Format ? number : { [K in keyof $Shape]: number }
+  $Shape extends Format.Struct ? number : { [K in keyof $Shape]: number }
 
 export type NativeData<$Shape extends Schema.Shape<Schema.AnyNativeSchema>> =
-  $Shape extends Format.Format
+  $Shape extends Format.Struct
     ? number
     : {
-        [K in keyof $Shape]: $Shape[K] extends Format.Format
+        [K in keyof $Shape]: $Shape[K] extends Format.Struct
           ? number
           : $Shape[K] extends Schema.Shape<Schema.AnyNativeSchema>
           ? NativeData<$Shape[K]>

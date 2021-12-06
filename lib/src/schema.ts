@@ -14,14 +14,14 @@ export enum SchemaKind {
 }
 
 /** @internal */
-export type NativeScalarSchema<$Shape extends Format.Format = Format.Format> = {
+export type NativeScalarSchema<$Shape extends Format.Struct = Format.Struct> = {
   id: number
   kind: SchemaKind.NativeScalar
   shape: $Shape
 }
 
 /** @internal */
-type NativeObjectShape = { [key: string]: Format.Format }
+type NativeObjectShape = { [key: string]: Format.Struct }
 
 /** @internal */
 export type NativeObjectSchema<$Shape extends NativeObjectShape = NativeObjectShape> = {
@@ -31,7 +31,7 @@ export type NativeObjectSchema<$Shape extends NativeObjectShape = NativeObjectSh
 }
 
 /** @internal */
-export type BinaryScalarSchema<$Shape extends Format.Format = Format.Format> = {
+export type BinaryScalarSchema<$Shape extends Format.Struct = Format.Struct> = {
   id: number
   kind: SchemaKind.BinaryScalar
   shape: $Shape
@@ -39,7 +39,7 @@ export type BinaryScalarSchema<$Shape extends Format.Format = Format.Format> = {
 
 /** @internal */
 export type BinaryStructSchema<
-  $Shape extends { [key: string]: Format.Format } = { [key: string]: Format.Format },
+  $Shape extends { [key: string]: Format.Struct } = { [key: string]: Format.Struct },
 > = {
   id: number
   kind: SchemaKind.BinaryStruct
@@ -96,7 +96,7 @@ export type BinarySchema<$Shape extends Shape<AnyBinarySchema>> =
     : never
 
 /** @internal */
-export function isFormat(object: object): object is Format.Format {
+export function isFormat(object: object): object is Format.Struct {
   return Symbols.$format in object
 }
 

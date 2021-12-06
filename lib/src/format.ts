@@ -16,7 +16,7 @@ export enum Kind {
  * Number format. Encloses a TypedArray constructor which corresponds to the
  * format kind, (e.g. `FormatKind.Uint8`->`Uint8Array`).
  */
-export type Format<
+export type Struct<
   $Kind extends Kind = Kind,
   $Binary extends Types.TypedArrayConstructor = Types.TypedArrayConstructor,
 > = { kind: $Kind; binary: $Binary }
@@ -24,7 +24,7 @@ export type Format<
 function makeFormat<$Kind extends Kind, $Binary extends Types.TypedArrayConstructor>(
   kind: $Kind,
   binary: $Binary,
-): Format<$Kind, $Binary> {
+): Struct<$Kind, $Binary> {
   return {
     [Symbols.$format]: true,
     kind,

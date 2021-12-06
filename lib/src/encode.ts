@@ -10,11 +10,11 @@ import * as Archetype from "./archetype"
 
 type Part = {
   data: number[]
-  view: Format.Format[]
+  view: Format.Struct[]
   byteLength: number
 }
 
-function push(part: Part, data: number, format: Format.Format) {
+function push(part: Part, data: number, format: Format.Struct) {
   const dataLength = part.data.push(data)
   const viewLength = part.view.push(format)
   Debug.invariant(dataLength === viewLength)
@@ -26,7 +26,7 @@ function write(
   part: Part,
   handle: number,
   data: number,
-  format: Format.Format = part.view[handle]!,
+  format: Format.Struct = part.view[handle]!,
 ) {
   part.byteLength +=
     format.binary.BYTES_PER_ELEMENT - part.view[handle]!.binary.BYTES_PER_ELEMENT
