@@ -384,7 +384,7 @@ export async function makeSchema<S extends Schema.Shape>(
   } else if (type === Schema.Type.Object) {
     schema = { type: Schema.Type.Object, shape }
   } else {
-    schema = { type: Schema.Type.Binary, shape }
+    schema = { type: Schema.Type.Binary, shape, keys: Object.keys(shape) }
   }
   let entity = await makeEntity<S>(registry)
   registry.shapeIndex[entity] = schema
