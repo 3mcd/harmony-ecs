@@ -4,11 +4,11 @@ import * as Entity from "./entity"
 /**
  * A type signature that characterizes an entity.
  */
-export type Struct = Entity.Id[]
+export type Struct = ReadonlyArray<Entity.Id>
 
 // prettier-ignore
 // Taken from https://github.com/tjwebb/fnv-plus
-function fast1a52(arr: number[]) {
+function fast1a52(arr: ReadonlyArray<number>) {
   let i,l=arr.length-3,t0=0,v0=0x2325,t1=0,v1=0x8422,t2=0,v2=0x9ce4,t3=0,v3=0xcbf2;
 
   for (i = 0; i < l;) {

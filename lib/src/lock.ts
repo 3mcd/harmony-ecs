@@ -138,7 +138,7 @@ export async function lockAsync(lock: Struct, index = lock.index) {
     do {
       if (c === 2 || Atomics.compareExchange(array, index, 1, 2) !== 0)
         // @ts-expect-error
-        await Atomics.waitAsync(array, index, 100)
+        await Atomics.waitAsync(array, index, 2, 100)
     } while ((c = Atomics.compareExchange(array, index, 0, 2)) !== 0)
   }
 }

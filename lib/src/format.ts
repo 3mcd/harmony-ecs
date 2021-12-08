@@ -1,4 +1,4 @@
-import * as Types from "./types"
+import * as Format from "./types"
 import * as Symbols from "./symbols"
 
 export enum Kind {
@@ -18,10 +18,10 @@ export enum Kind {
  */
 export type Struct<
   $Kind extends Kind = Kind,
-  $Binary extends Types.TypedArrayConstructor = Types.TypedArrayConstructor,
+  $Binary extends Format.TypedArrayConstructor = Format.TypedArrayConstructor,
 > = { kind: $Kind; binary: $Binary }
 
-function makeFormat<$Kind extends Kind, $Binary extends Types.TypedArrayConstructor>(
+function makeFormat<$Kind extends Kind, $Binary extends Format.TypedArrayConstructor>(
   kind: $Kind,
   binary: $Binary,
 ): Struct<$Kind, $Binary> {
@@ -40,3 +40,7 @@ export const uint32 = makeFormat(Kind.Uint32, Uint32Array)
 export const int8 = makeFormat(Kind.Int8, Int8Array)
 export const int16 = makeFormat(Kind.Int16, Int16Array)
 export const int32 = makeFormat(Kind.Int32, Int32Array)
+
+export function isFormat(object: object): object is Struct {
+  return Symbols.$format in object
+}
