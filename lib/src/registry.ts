@@ -1,20 +1,22 @@
+import * as ComponentSet from "./component_set"
 import * as Debug from "./debug"
 import * as Entity from "./entity"
 import * as Format from "./format"
 import * as Lock from "./lock"
 import * as Schema from "./schema"
-import * as Table from "./table"
-import * as Type from "./type"
 import * as Signal from "./signal"
+import * as Table from "./table"
+import * as TableCheck from "./table_check"
+import * as Type from "./type"
 
 const performance = globalThis.performance ?? require("perf_hooks").performance
 
 const ENTITY_FREE = 0
 const ENTITY_RESERVED = 1
 
-export type Signals = {
+export type Signals = Table.Signals & {
   onTableCreate: Signal.Struct<Table.Struct>
-} & Table.Signals
+}
 
 /**
  * The root object of a Harmony world.
@@ -69,7 +71,7 @@ export type Struct = {
    * for that type. Used to inform other threads of the existence of a table
    * that hasn't been shared yet.
    */
-  tableCheck: Uint8Array
+  tableCheck: TableCheck.Struct
 
   /**
    * Maps type hashes to an entity table.
@@ -83,34 +85,27 @@ export type Struct = {
 }
 
 export function make(entityInit = 1_000): Struct {
-  // create shared memory
-  let sharedEntityGenerationIndex = new SharedArrayBuffer(
-    entityInit * Uint32Array.BYTES_PER_ELEMENT,
+  let entityLock = Lock.make(
+    new SharedArrayBuffer(entityInit * Uint32Array.BYTES_PER_ELEMENT),
   )
-  let sharedEntityHead = new SharedArrayBuffer(Uint32Array.BYTES_PER_ELEMENT)
-  let sharedEntityLock = new SharedArrayBuffer(entityInit * Uint32Array.BYTES_PER_ELEMENT)
-  let sharedEntityTypeIndex = new SharedArrayBuffer(
-    entityInit * Float64Array.BYTES_PER_ELEMENT,
-  )
-  let sharedEntityOffsetIndex = new SharedArrayBuffer(
-    entityInit * Float64Array.BYTES_PER_ELEMENT,
-  )
-  let sharedTableCheck = new SharedArrayBuffer(0xffffffff / 8)
-  let sharedTableLock = new SharedArrayBuffer(Uint32Array.BYTES_PER_ELEMENT)
-  // create and initialize locks
-  let entityLock = Lock.make(sharedEntityLock)
-  let tableLock = Lock.make(sharedTableLock)
-  Lock.initialize(sharedEntityLock, 0)
-  Lock.initialize(sharedTableLock, 0)
+  let tableLock = Lock.make(new SharedArrayBuffer(Uint32Array.BYTES_PER_ELEMENT))
+  Lock.initialize(entityLock, 0)
+  Lock.initialize(tableLock, 0)
 
   return {
-    entityGenerationIndex: new Uint32Array(sharedEntityGenerationIndex),
-    entityHead: new Uint32Array(sharedEntityHead),
+    entityGenerationIndex: new Uint32Array(
+      new SharedArrayBuffer(entityInit * Uint32Array.BYTES_PER_ELEMENT),
+    ),
+    entityHead: new Uint32Array(new SharedArrayBuffer(Uint32Array.BYTES_PER_ELEMENT)),
     entityLock,
     entityInit,
-    entityTypeIndex: new Float64Array(sharedEntityTypeIndex),
-    entityOffsetIndex: new Float64Array(sharedEntityOffsetIndex),
-    tableCheck: new Uint8Array(sharedTableCheck),
+    entityTypeIndex: new Float64Array(
+      new SharedArrayBuffer(entityInit * Float64Array.BYTES_PER_ELEMENT),
+    ),
+    entityOffsetIndex: new Float64Array(
+      new SharedArrayBuffer(entityInit * Float64Array.BYTES_PER_ELEMENT),
+    ),
+    tableCheck: TableCheck.make(1_000),
     tableIndex: [],
     tableLock,
     shapeIndex: [],
@@ -118,26 +113,10 @@ export function make(entityInit = 1_000): Struct {
 }
 
 /**
- * Calculate the index in a table check array at which a table with the
- * specified hash would exist.
- */
-function calcTableCheckIndex(typeHash: number) {
-  return Math.floor(typeHash / 8)
-}
-
-/**
- * Calculate the mask used to read the specific bit for a table at an index in
- * a table check array.
- */
-function calcTableCheckMask(typeHash: number) {
-  return 1 << typeHash % 8
-}
-
-/**
  * Wait for a table to (magically) appear. Throw if a table doesn't show up
  * after the provided timeout.
  */
-function waitForTable(registry: Struct, typeHash: number, timeout = 1000) {
+function waitForTableUnsafe(registry: Struct, typeHash: number, timeout = 1000) {
   let startTime = performance.now()
   return new Promise<Table.Struct>(function checkTableExecutor(resolve, reject) {
     function checkTableReceived() {
@@ -159,17 +138,19 @@ function waitForTable(registry: Struct, typeHash: number, timeout = 1000) {
 /**
  * Attempt to synchronously locate a table by type hash. Wait for the table if
  * it isn't found on the current thread, but definitely exists on another.
+ * Resolves `null` if the table does not exist.
  */
-async function findOrWaitForTable(registry: Struct, typeHash: number) {
+async function findOrWaitForTableUnsafe(
+  registry: Struct,
+  typeHash: number,
+): Promise<Table.Struct | null> {
   let table = registry.tableIndex[typeHash]
   if (table === undefined) {
-    let tableCheckIndex = calcTableCheckIndex(typeHash)
-    let tableCheckMask = calcTableCheckMask(typeHash)
-    if ((registry.tableCheck[tableCheckIndex] & tableCheckMask) !== 0) {
-      table = await waitForTable(registry, typeHash)
+    if (TableCheck.has(registry.tableCheck, typeHash)) {
+      table = await waitForTableUnsafe(registry, typeHash)
     }
   }
-  return table
+  return table ?? null
 }
 
 /**
@@ -182,23 +163,17 @@ async function findOrMakeTable<T extends Type.Struct>(
   signals: Signals,
 ) {
   Lock.lockThreadAware(registry.tableLock)
-  let table = registry.tableIndex[typeHash]
 
-  if (table === undefined) {
-    let tableCheckIndex = calcTableCheckIndex(typeHash)
-    let tableCheckMask = calcTableCheckMask(typeHash)
-    if ((registry.tableCheck[tableCheckIndex] & tableCheckMask) !== 0) {
-      table = await waitForTable(registry, typeHash)
-    } else {
-      table = Table.make(
-        type,
-        type.map(id => registry.shapeIndex[id] ?? null),
-        registry.entityInit,
-      )
-      registry.tableCheck[tableCheckIndex] |= tableCheckMask
-      registry.tableIndex[typeHash] = table
-      Signal.dispatch(signals.onTableCreate, table)
-    }
+  let table = await findOrWaitForTableUnsafe(registry, typeHash)
+  if (table === null) {
+    table = Table.make(
+      type,
+      type.map(id => registry.shapeIndex[id] ?? null),
+      registry.entityInit,
+    )
+    TableCheck.add(registry.tableCheck, typeHash)
+    registry.tableIndex[typeHash] = table
+    Signal.dispatch(signals.onTableCreate, table)
   }
 
   Lock.unlock(registry.tableLock)
@@ -211,18 +186,15 @@ async function findOrMakeTable<T extends Type.Struct>(
  */
 export async function makeEntity<D>(registry: Struct) {
   let id: Entity.Id | undefined
-  // Not sure if this is thread-safe. May need to place a lock on the entire
-  // registry
   for (let i = 0; i < registry.entityInit; i++) {
-    // uint32 will wrap around to 0 after the maximum 32-bit integer value is
-    // surpassed
     let entityId = Atomics.add(registry.entityHead, 0, 1) + 1
     // Lock the entity state while we check if it's free
     await Lock.lockThreadAware(registry.entityLock, entityId)
+    // Check if entity is available
     let entityTypeHash = registry.entityTypeIndex[entityId]
     let hit = entityTypeHash === ENTITY_FREE
     if (hit) {
-      // Reserve id
+      // Entity is available—reserve the id
       registry.entityTypeIndex[entityId] = ENTITY_RESERVED
       id = Entity.pack(entityId, registry.entityGenerationIndex[entityId]) as Entity.Id
     }
@@ -253,18 +225,27 @@ export function isAlive(registry: Struct, id: Entity.Id) {
 export async function has(registry: Struct, entity: Entity.Id, type: Type.Struct) {
   let entityId = Entity.lo(entity)
   let entityGen = Entity.hi(entity)
-  let normalType = Type.normalize(type)
 
   await Lock.lockThreadAware(registry.entityLock, entityId)
 
   Debug.assert(ofGeneration(registry, entityId, entityGen))
 
+  let normalizedType = Type.normalize(type)
   let typeHash = registry.entityTypeIndex[entityId]
   let match = false
 
   if (!isPrimitive(typeHash)) {
-    let table = await findOrWaitForTable(registry, typeHash)
-    match = Type.contains(table.type, normalType) || Type.isEqual(table.type, normalType)
+    // Acquire a table lock since an entity could have been moved into a new,
+    // yet-to-be shared table on a different thread
+    await Lock.lockThreadAware(registry.tableLock)
+    let table = await findOrWaitForTableUnsafe(registry, typeHash)
+    // If the entity's table overlaps with the input type, we know the entity
+    // has those components
+    match =
+      table !== null &&
+      (Type.contains(table.type, normalizedType) ||
+        Type.isEqual(table.type, normalizedType))
+    Lock.unlock(registry.tableLock)
   }
 
   Lock.unlock(registry.entityLock)
@@ -276,49 +257,42 @@ export async function add<T extends Type.Struct>(
   registry: Struct,
   entity: Entity.Id,
   type: T,
-  data: Table.Row<T>,
+  init: Table.Row<T>,
   signals: Signals,
 ) {
   let entityId = Entity.lo(entity)
   let entityGen = Entity.hi(entity)
-  let normalType = Type.normalize(type)
 
+  // Acquire a lock on the entity
   await Lock.lockThreadAware(registry.entityLock, entityId)
 
+  // Ensure the entity in question isn't stale
   Debug.assert(ofGeneration(registry, entityId, entityGen))
 
-  let typeHash = registry.entityTypeIndex[entityId]
-  let table: Table.Struct | undefined
+  // Get entity table (if any)
+  let prevTypeHash = registry.entityTypeIndex[entityId]
+  let prevTable: Table.Struct | null = isPrimitive(prevTypeHash)
+    ? null
+    : await findOrWaitForTableUnsafe(registry, prevTypeHash)
 
-  if (!isPrimitive(typeHash)) {
-    table = await findOrWaitForTable(registry, typeHash)
-  }
+  // Produce a table from a combination of the entity's current type and newly
+  // added components
+  let index = registry.entityOffsetIndex[entityId]
+  let nextType = prevTable ? Type.and(prevTable.type, type) : type
+  let nextTypeHash = Type.hash(nextType)
+  let nextTable = await findOrMakeTable(registry, nextType, nextTypeHash, signals)
 
-  let nextType: Type.Struct
-
-  if (table) {
-    if (Type.contains(table.type, normalType)) {
-      // No-op: entity already has all of these components
-      return
-    }
-    // Merge the two types
-    nextType = Type.and(table.type, normalType)
+  // Insert or relocate entity
+  let data = ComponentSet.make(type, init)
+  if (prevTable === null) {
+    await Table.insert(registry, entity, nextTable, data, signals)
   } else {
-    nextType = type
+    await Table.move(registry, entity, index, prevTable, nextTable, data, signals)
   }
 
-  let nextHash = Type.hash(nextType)
-  let nextTable = await findOrMakeTable(registry, nextType, nextHash, signals)
-
-  // TODO: move from prev table to next
-  registry.entityOffsetIndex[entityId] = await Table.insert(
-    nextTable,
-    entity,
-    data,
-    signals,
-  )
-  registry.entityTypeIndex[entityId] = nextHash
-
+  // Update entity location
+  registry.entityTypeIndex[entityId] = nextTypeHash
+  // Release lock
   Lock.unlock(registry.entityLock)
 }
 
@@ -327,21 +301,7 @@ export async function remove(
   id: Entity.Id,
   component: Entity.Id<Schema.Struct>,
   signals: Signals,
-) {
-  // let entityId = Entity.lo(id)
-  // let entityGen = Entity.hi(id)
-  // await Lock.lockThreadAware(registry.entityLock, entityId)
-  // Debug.assert(ofGeneration(registry, entityId, entityGen))
-  // let typeHash = registry.entityTypeIndex[entityId]
-  // let table = await findOrWaitForTable(registry, typeHash)
-  // if (table === undefined || !table.type.includes(id)) {
-  //   return
-  // }
-  // let nextType = Type.remove(table.type, component)
-  // let nextHash = Type.hash(nextType)
-  // let nextTable = await findOrMakeTable(registry, nextType, nextHash, out)
-  // Lock.unlock(registry.entityLock)
-}
+) {}
 
 export async function destroy(registry: Struct, id: Entity.Id) {
   let entityId = Entity.lo(id)
@@ -382,7 +342,7 @@ export async function makeSchema<S extends Schema.Shape>(
   if (Format.isFormat(shape)) {
     schema = { type: Schema.Type.Scalar, shape }
   } else if (type === Schema.Type.Object) {
-    schema = { type: Schema.Type.Object, shape }
+    schema = { type: Schema.Type.Object, shape, keys: Object.keys(shape) }
   } else {
     schema = { type: Schema.Type.Binary, shape, keys: Object.keys(shape) }
   }

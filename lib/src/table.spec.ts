@@ -15,14 +15,15 @@ describe("Table", () => {
       let e2 = await Registry.makeEntity(registry)
       let e3 = await Registry.makeEntity(registry)
       let e4 = await Registry.makeEntity(registry)
-      await Table.insert(table, e1, [null], signals)
-      await Table.insert(table, e2, [null], signals)
-      await Table.insert(table, e3, [null], signals)
-      await Table.insert(table, e4, [null], signals)
+      await Table.insert(registry, e1, table, [null], signals)
+      await Table.insert(registry, e2, table, [null], signals)
+      await Table.insert(registry, e3, table, [null], signals)
+      await Table.insert(registry, e4, table, [null], signals)
       let results = []
       let it = Table.iter(table)
       for (let i of await it()) results.push(table.entities[i])
       expect(results.sort()).toEqual([e1, e2, e3, e4])
+      console.log(registry)
     })
   })
   describe("insert", () => {
@@ -36,7 +37,13 @@ describe("Table", () => {
         10,
       )
       for (let i = 0; i < 100; i++) {
-        await Table.insert(table, await Registry.makeEntity(registry), [0], signals)
+        await Table.insert(
+          registry,
+          await Registry.makeEntity(registry),
+          table,
+          [0],
+          signals,
+        )
       }
       let results = []
       let it = Table.iter(table)

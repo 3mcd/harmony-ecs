@@ -106,13 +106,12 @@ export function make(sab: SharedArrayBuffer, loc = 0) {
   }
 }
 
-export function initialize(sab: SharedArrayBuffer, loc: number) {
-  Debug.assert(sab instanceof SharedArrayBuffer)
+export function initialize(lock: Struct, loc: number) {
   Debug.assert((loc | 0) === loc)
   Debug.assert(loc >= 0)
   Debug.assert(loc % ALIGN === 0)
-  Debug.assert(loc + NUMBYTES <= sab.byteLength)
-  Atomics.store(new Int32Array(sab, loc, 1), 0, 0)
+  Debug.assert(loc + NUMBYTES <= lock.array.buffer.byteLength)
+  Atomics.store(new Int32Array(lock.array.buffer, loc, 1), 0, 0)
   return loc
 }
 

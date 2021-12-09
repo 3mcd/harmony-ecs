@@ -1,4 +1,4 @@
-import * as Debug from "./debug"
+import * as Registry from "./registry"
 import * as Entity from "./entity"
 import * as Format from "./format"
 import * as Lock from "./lock"
@@ -14,14 +14,14 @@ export type Signals = {
 
 export type Layout = (Schema.Struct | null)[]
 
+type ColumnBinary = { [key: string]: Types.TypedArray }
 type ColumnObject = unknown[]
 type ColumnScalar = Types.TypedArray
-type ColumnBinaryStruct = { [key: string]: Types.TypedArray }
 
 /**
  * A densely packed vector of component data.
  */
-type Column = ColumnObject | ColumnScalar | ColumnBinaryStruct
+type Column = ColumnObject | ColumnScalar | ColumnBinary
 
 /**
  * A row of table data associated with a single entity. Data-less components
@@ -33,130 +33,6 @@ export type Row<T extends Type.Struct> = {
       ? Schema.Express<_>
       : null
     : never
-}
-
-function makeTypedArrayColumn(format: Format.Struct, size: number) {
-  return new format.binary(
-    new (globalThis.SharedArrayBuffer ?? globalThis.ArrayBuffer)(
-      size * format.binary.BYTES_PER_ELEMENT,
-    ),
-  )
-}
-
-/**
- * Make a table column.
- */
-function makeColumn(schema: Schema.Struct, size: number): Column {
-  switch (schema.type) {
-    case Schema.Type.Binary:
-      return Object.entries(schema.shape).reduce<ColumnBinaryStruct>(
-        (a, [memberName, memberNode]) => {
-          a[memberName] = makeTypedArrayColumn(memberNode, size)
-          return a
-        },
-        {},
-      )
-    case Schema.Type.Object:
-      return []
-    case Schema.Type.Scalar:
-      return makeTypedArrayColumn(schema.shape, size)
-  }
-}
-
-function moveUnsafe(
-  entity: Entity.Id,
-  prevIndex: number,
-  prevTable: Struct,
-  nextTable: Struct,
-  data?: ComponentSet.Struct,
-) {
-  const nextIndex = nextTable.length[0]++
-  for (let i = 0; i < nextTable.type.length; i++) {
-    let id = nextTable.type[i]
-    let prevColumn = prevTable.columns[id]
-    let nextColumn = nextTable.columns[id]
-    // Skip data-less components
-    if (nextColumn === null || nextColumn === undefined) continue
-    // Previous table doesn't have component, so there is no data to copy
-    if (prevColumn === undefined) {
-      const value = data![id] ?? Schema.express(nextTable.layout[i]!)
-      writeColumnData(nextColumn, nextIndex, value)
-    } else {
-      const value = data?.[id]
-      if (value === undefined) {
-        copyColumnData(prevColumn, nextColumn, prevIndex, nextIndex)
-      } else {
-        writeColumnData(nextColumn, nextIndex, value)
-      }
-    }
-  }
-  nextTable.entities[nextIndex] = entity
-  remove(prevTable, entity)
-  return nextIndex
-}
-
-function removeUnsafe(table: Struct, index: number) {
-  const length = table.length[0]
-  // const head = table.entities[table.length[0] - 1]
-
-  if (index === length - 1) {
-    // pop
-    for (let i = 0; i < table.type.length; i++) {
-      const id = table.type[i]
-      const schema = table.layout[id]
-      const column = table.columns[id]
-      if (schema === null || schema === undefined) continue
-      switch (schema.type) {
-        case Schema.Type.Scalar:
-          ;(column as ColumnScalar)[index] = 0
-          break
-        case Schema.Type.Binary:
-          for (let j = 0; j < schema.keys.length; j++) {
-            ;(column as ColumnBinaryStruct)[schema.keys[j]][index] = 0
-          }
-          break
-        case Schema.Type.Object:
-          ;(column as ColumnObject).pop()
-          break
-      }
-    }
-  } else {
-    // swap
-    const from = archetype.entities.length - 1
-    for (let i = 0; i < archetype.store.length; i++) {
-      const column = archetype.store[i]
-      Debug.invariant(column !== undefined)
-      switch (column.kind) {
-        case Schema.SchemaKind.BinaryScalar:
-          const data = column.data[from]
-          Debug.invariant(data !== undefined)
-          column.data[from] = 0
-          column.data[index] = data
-          break
-        case Schema.SchemaKind.BinaryStruct:
-          for (const key in column.schema.shape) {
-            const array = column.data[key]
-            Debug.invariant(array !== undefined)
-            const data = array[from]
-            Debug.invariant(data !== undefined)
-            array[from] = 0
-            array[index] = data
-          }
-          break
-        case Schema.SchemaKind.NativeScalar:
-        case Schema.SchemaKind.NativeObject: {
-          const data = column.data.pop()
-          Debug.invariant(data !== undefined)
-          column.data[index] = data
-          break
-        }
-      }
-    }
-    archetype.entities[index] = head
-    archetype.entityIndex[head] = index
-  }
-
-  archetype.entityIndex[entity] = -1
 }
 
 /**
@@ -212,34 +88,172 @@ export type Struct<T extends Type.Struct = Type.Struct> = {
   type: T
 }
 
-/**
- * Make a table.
- */
-export function make<T extends Type.Struct>(
-  type: T,
-  layout: Layout,
-  initialSize: number,
-  initialScaleFactor = 1.2,
-): Struct<T> {
-  let sharedEntities = new SharedArrayBuffer(Uint32Array.BYTES_PER_ELEMENT * initialSize)
-  let sharedLength = new SharedArrayBuffer(Uint32Array.BYTES_PER_ELEMENT)
-  let sharedLock = new SharedArrayBuffer(Uint32Array.BYTES_PER_ELEMENT)
-  let columns: (Column | null | undefined)[] = []
+function makeTypedArrayColumn(format: Format.Struct, size: number) {
+  return new format.binary(
+    new (globalThis.SharedArrayBuffer ?? globalThis.ArrayBuffer)(
+      size * format.binary.BYTES_PER_ELEMENT,
+    ),
+  )
+}
 
-  for (let i = 0; i < type.length; i++) {
-    let schema = layout[i]
-    columns[type[i]] = schema ? makeColumn(schema, initialSize) : null
+/**
+ * Make a table column.
+ */
+function makeColumn(schema: Schema.Struct, size: number): Column {
+  switch (schema.type) {
+    case Schema.Type.Binary:
+      return Object.entries(schema.shape).reduce<ColumnBinary>(
+        (a, [memberName, memberNode]) => {
+          a[memberName] = makeTypedArrayColumn(memberNode, size)
+          return a
+        },
+        {},
+      )
+    case Schema.Type.Object:
+      return []
+    case Schema.Type.Scalar:
+      return makeTypedArrayColumn(schema.shape, size)
+  }
+}
+
+export function writeColumnData<S extends Schema.Struct>(
+  column: Column,
+  schema: Schema.Struct,
+  index: number,
+  data: Schema.Express<S>,
+) {
+  if (schema.type === Schema.Type.Binary) {
+    for (let i = 0; i < schema.keys.length; i++) {
+      let key = schema.keys[i]
+      ;(column as ColumnBinary)[key][index] = (
+        data as Schema.Express<Schema.StructObject>
+      )[key]
+    }
+  } else {
+    ;(column as unknown[])[index] = data
+  }
+}
+
+export function copyColumnData(
+  prevColumn: Column,
+  nextColumn: Column,
+  schema: Schema.Struct,
+  prevIndex: number,
+  nextIndex: number,
+) {
+  if (schema.type === Schema.Type.Binary) {
+    for (let i = 0; i < schema.keys.length; i++) {
+      let key = schema.keys[i]
+      let prevArray = (prevColumn as ColumnBinary)[key]
+      let nextArray = (prevColumn as ColumnBinary)[key]
+      nextArray[nextIndex] = prevArray[prevIndex]
+    }
+  } else {
+    ;(nextColumn as unknown[])[nextIndex] = (prevColumn as unknown[])[prevIndex]
+  }
+}
+
+function moveUnsafe(
+  registry: Registry.Struct,
+  entity: Entity.Id,
+  prevIndex: number,
+  prevTable: Struct,
+  nextTable: Struct,
+  data: ComponentSet.Struct,
+  signals: Signals,
+) {
+  let nextIndex = nextTable.length[0]++
+
+  // Grow the table if we have reached the a maximum size
+  if (nextIndex === nextTable.entities.length) {
+    growUnsafe(nextTable)
+    Signal.dispatch(signals.onTableGrow, nextTable)
   }
 
-  return {
-    activeIteratorCount: 0,
-    columns,
-    entities: new Uint32Array(sharedEntities),
-    layout,
-    length: new Uint32Array(sharedLength),
-    lock: Lock.make(sharedLock),
-    scaleFactor: initialScaleFactor,
-    type,
+  for (let i = 0; i < nextTable.type.length; i++) {
+    let id = nextTable.type[i]
+    let prevColumn = prevTable.columns[id]
+    let nextColumn = nextTable.columns[id]
+    // Skip data-less components
+    if (nextColumn === null || nextColumn === undefined) continue
+    let schema = nextTable.layout[i]!
+    // Previous table doesn't have component, so there is no data to copy
+    if (prevColumn === undefined) {
+      let value = data[id] ?? Schema.express(nextTable.layout[i]!)
+      writeColumnData(nextColumn, schema, nextIndex, value)
+    } else {
+      let value = data[id]
+      if (value === undefined) {
+        copyColumnData(prevColumn!, nextColumn, schema, prevIndex, nextIndex)
+      } else {
+        writeColumnData(nextColumn, schema, nextIndex, value!)
+      }
+    }
+  }
+
+  nextTable.entities[nextIndex] = entity
+  removeUnsafe(registry, prevTable, entity)
+  registry.entityOffsetIndex[entity] = nextIndex
+}
+
+function removeUnsafe(registry: Registry.Struct, table: Struct, index: number) {
+  let head = table.length[0] - 1
+
+  if (index === head) {
+    // pop
+    for (let i = 0; i < table.type.length; i++) {
+      let id = table.type[i]
+      let schema = table.layout[i]
+      let column = table.columns[id]
+      if (schema === null || schema === undefined) continue
+      switch (schema.type) {
+        case Schema.Type.Scalar:
+          ;(column as ColumnScalar)[index] = 0
+          break
+        case Schema.Type.Binary:
+          for (let j = 0; j < schema.keys.length; j++) {
+            ;(column as ColumnBinary)[schema.keys[j]][index] = 0
+          }
+          break
+        case Schema.Type.Object:
+          ;(column as ColumnObject).pop()
+          break
+      }
+    }
+    table.entities[index] = 0
+  } else {
+    // swap
+    for (let i = 0; i < table.type.length; i++) {
+      let id = table.type[i]
+      let schema = table.layout[i]
+      let column = table.columns[id]
+      if (schema === null || schema === undefined) continue
+      switch (schema.type) {
+        case Schema.Type.Scalar:
+          let data = (column as ColumnScalar)[head]
+          ;(column as ColumnScalar)[head] = 0
+          ;(column as ColumnScalar)[index] = data
+          break
+        case Schema.Type.Binary:
+          for (let j = 0; j < schema.keys.length; j++) {
+            let key = schema.keys[j]
+            let array = (column as ColumnBinary)[key]
+            let data = array[head]
+            array[head] = 0
+            array[index] = data
+          }
+          break
+        case Schema.Type.Object: {
+          const data = (column as ColumnObject).pop()
+          ;(column as ColumnObject)[index] = data
+          break
+        }
+      }
+    }
+    let headEntity = table.entities[head]
+    registry.entityOffsetIndex[headEntity] = index
+    table.entities[index] = headEntity
+    table.entities[head] = 0
   }
 }
 
@@ -267,7 +281,7 @@ export function growUnsafe(table: Struct) {
     } else {
       // Resize each member in the binary struct
       for (let prop in schema.shape) {
-        ;(column as ColumnBinaryStruct)[prop] = new schema.shape[prop].binary(
+        ;(column as ColumnBinary)[prop] = new schema.shape[prop].binary(
           growArrayBufferUnsafe(column as Types.TypedArray, size),
         )
       }
@@ -277,10 +291,11 @@ export function growUnsafe(table: Struct) {
   table.scaleFactor *= 1.2
 }
 
-export async function insertUnsafe<T extends Type.Struct>(
+export function insertUnsafe<T extends Type.Struct>(
+  registry: Registry.Struct,
   table: Struct<T>,
   entity: Entity.Id,
-  data: Row<T>,
+  data: ComponentSet.Struct,
   signals: Signals,
 ) {
   // Acquire a new index
@@ -303,7 +318,9 @@ export async function insertUnsafe<T extends Type.Struct>(
       // Update each field in the binary struct
       for (let j = 0; j < schema.keys.length; j++) {
         let key = schema.keys[i]
-        ;(column as ColumnBinaryStruct)[key][index] = data[i]![key]
+        ;(column as ColumnBinary)[key][index] = (
+          data[id] as Schema.Express<Schema.StructBinary>
+        )[key]
       }
     } else {
       // push the scalar or object value into the target array
@@ -311,30 +328,83 @@ export async function insertUnsafe<T extends Type.Struct>(
     }
   }
 
-  return index
+  registry.entityOffsetIndex[entity] = index
 }
 
 export async function insert<T extends Type.Struct>(
-  table: Struct<T>,
+  registry: Registry.Struct,
   entity: Entity.Id,
-  data: Row<T>,
+  table: Struct<T>,
+  data: ComponentSet.Struct,
   signals: Signals,
 ) {
-  let index: Promise<number>
-
   if (table.activeIteratorCount > 0) {
     // The thread already has a lock on the table within an iterator, so we
     // continue the insert without acquiring a lock
-    index = insertUnsafe(table, entity, data, signals)
+    insertUnsafe(registry, table, entity, data, signals)
   } else {
     // Function was not called within an iterator, so we must acquire a lock
     // before mutating the table
     await Lock.lockThreadAware(table.lock)
-    index = insertUnsafe(table, entity, data, signals)
+    insertUnsafe(registry, table, entity, data, signals)
     Lock.unlock(table.lock)
   }
+}
 
-  return index
+export async function remove<T extends Type.Struct>(
+  registry: Registry.Struct,
+  table: Struct<T>,
+  entity: Entity.Id,
+) {
+  if (table.activeIteratorCount > 0) {
+    removeUnsafe(registry, table, entity)
+  } else {
+    await Lock.lockThreadAware(table.lock)
+    removeUnsafe(registry, table, entity)
+    Lock.unlock(table.lock)
+  }
+}
+
+export async function move<T extends Type.Struct>(
+  registry: Registry.Struct,
+  entity: Entity.Id,
+  index: number,
+  prevTable: Struct<T>,
+  nextTable: Struct<T>,
+  data: ComponentSet.Struct,
+  signals: Signals,
+) {
+  let state = 0
+  if (prevTable.activeIteratorCount + nextTable.activeIteratorCount === 0) {
+    await Promise.all([
+      Lock.lockThreadAware(prevTable.lock),
+      Lock.lockThreadAware(nextTable.lock),
+    ])
+    state = 3
+  } else if (prevTable.activeIteratorCount === 0) {
+    await Lock.lockThreadAware(prevTable.lock)
+    state = 1
+  } else if (nextTable.activeIteratorCount === 0) {
+    await Lock.lockThreadAware(nextTable.lock)
+    state = 2
+  }
+
+  moveUnsafe(registry, entity, index, prevTable, nextTable, data, signals)
+
+  switch (state) {
+    case 0:
+      return
+    case 1:
+      Lock.unlock(prevTable.lock)
+      break
+    case 2:
+      Lock.unlock(nextTable.lock)
+      break
+    case 3:
+      Lock.unlock(prevTable.lock)
+      Lock.unlock(nextTable.lock)
+      break
+  }
 }
 
 export function iter<T extends Type.Struct>(table: Struct<T>) {
@@ -378,4 +448,35 @@ export function iter<T extends Type.Struct>(table: Struct<T>) {
   }
 
   return initializeTableIterator
+}
+
+/**
+ * Make a table.
+ */
+export function make<T extends Type.Struct>(
+  type: T,
+  layout: Layout,
+  initialSize: number,
+  initialScaleFactor = 1.2,
+): Struct<T> {
+  let sharedEntities = new SharedArrayBuffer(Uint32Array.BYTES_PER_ELEMENT * initialSize)
+  let sharedLength = new SharedArrayBuffer(Uint32Array.BYTES_PER_ELEMENT)
+  let sharedLock = new SharedArrayBuffer(Uint32Array.BYTES_PER_ELEMENT)
+  let columns: (Column | null | undefined)[] = []
+
+  for (let i = 0; i < type.length; i++) {
+    let schema = layout[i]
+    columns[type[i]] = schema ? makeColumn(schema, initialSize) : null
+  }
+
+  return {
+    activeIteratorCount: 0,
+    columns,
+    entities: new Uint32Array(sharedEntities),
+    layout,
+    length: new Uint32Array(sharedLength),
+    lock: Lock.make(sharedLock),
+    scaleFactor: initialScaleFactor,
+    type,
+  }
 }

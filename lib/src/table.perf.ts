@@ -24,7 +24,7 @@ let table = Table.make(
 
 for (let i = 0; i < COUNT; i++) {
   let e = await Registry.makeEntity(registry)
-  await Table.insert(table, e, [90, 91], signals)
+  await Table.insert(registry, e, table, [90, 91], signals)
 }
 
 let it = Table.iter(table)
