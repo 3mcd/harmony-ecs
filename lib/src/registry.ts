@@ -11,7 +11,15 @@ import * as Type from "./type"
 
 const performance = globalThis.performance ?? require("perf_hooks").performance
 
+/**
+ * Signifies that an entity is available for use.
+ */
 const ENTITY_FREE = 0
+
+/**
+ * Signifies that an entity is not available for use but does not yet have any
+ * components.
+ */
 const ENTITY_RESERVED = 1
 
 export type Signals = Table.Signals & {
@@ -186,6 +194,7 @@ async function findOrMakeTable<T extends Type.Struct>(
  */
 export async function makeEntity<D>(registry: Struct) {
   let id: Entity.Id | undefined
+
   for (let i = 0; i < registry.entityInit; i++) {
     let entityId = Atomics.add(registry.entityHead, 0, 1) + 1
     // Lock the entity state while we check if it's free
@@ -210,8 +219,8 @@ export async function makeEntity<D>(registry: Struct) {
   return id as Entity.Id<D>
 }
 
-function ofGeneration(registry: Struct, entityId: number, entityGen: number) {
-  return entityGen === Atomics.load(registry.entityGenerationIndex, entityId)
+function ofGenerationUnsafe(registry: Struct, entityId: number, entityGen: number) {
+  return entityGen === registry.entityGenerationIndex[entityId]
 }
 
 function isPrimitive(typeHash: number) {
@@ -219,7 +228,7 @@ function isPrimitive(typeHash: number) {
 }
 
 export function isAlive(registry: Struct, id: Entity.Id) {
-  return ofGeneration(registry, Entity.lo(id), Entity.hi(id))
+  return ofGenerationUnsafe(registry, Entity.lo(id), Entity.hi(id))
 }
 
 export async function has(registry: Struct, entity: Entity.Id, type: Type.Struct) {
@@ -228,7 +237,7 @@ export async function has(registry: Struct, entity: Entity.Id, type: Type.Struct
 
   await Lock.lockThreadAware(registry.entityLock, entityId)
 
-  Debug.assert(ofGeneration(registry, entityId, entityGen))
+  Debug.assert(ofGenerationUnsafe(registry, entityId, entityGen))
 
   let normalizedType = Type.normalize(type)
   let typeHash = registry.entityTypeIndex[entityId]
@@ -267,7 +276,7 @@ export async function add<T extends Type.Struct>(
   await Lock.lockThreadAware(registry.entityLock, entityId)
 
   // Ensure the entity in question isn't stale
-  Debug.assert(ofGeneration(registry, entityId, entityGen))
+  Debug.assert(ofGenerationUnsafe(registry, entityId, entityGen))
 
   // Get entity table (if any)
   let prevTypeHash = registry.entityTypeIndex[entityId]
@@ -309,7 +318,7 @@ export async function destroy(registry: Struct, id: Entity.Id) {
 
   await Lock.lockThreadAware(registry.entityLock, entityId)
 
-  Debug.assert(ofGeneration(registry, entityId, entityGen))
+  Debug.assert(ofGenerationUnsafe(registry, entityId, entityGen))
 
   if (entityGen === registry.entityGenerationIndex[entityId]) {
     registry.entityGenerationIndex[entityId] += 1

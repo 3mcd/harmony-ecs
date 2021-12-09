@@ -3,10 +3,10 @@ import * as Types from "./types"
 /**
  * An entity identifier.
  *
- * Ids are optionally generic: they can wrap another type that can be read
- * later. For example, components are represented as `Id<Shape.Struct>`, which
- * allows Harmony to inspect the shape of the component and use it to enforce
- * type-safety in functions like `make` and `add`.
+ * Ids may wrap another type. For example, components are represented as
+ * `Id<Shape.Struct>`, which allows Harmony to inspect the shape of the
+ * component and use it to enforce type-safety in functions like `make` and
+ * `add`.
  */
 export type Id<$Data = unknown> = number & Types.Opaque<$Data>
 
