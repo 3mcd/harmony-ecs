@@ -6,7 +6,7 @@ import * as Lock from "./lock"
 import * as Schema from "./schema"
 import * as Signal from "./signal"
 import * as Table from "./table"
-import * as TableCheck from "./table_check"
+import * as SharedUintMap from "./shared_uint_map"
 import * as Type from "./type"
 
 const performance = globalThis.performance ?? require("perf_hooks").performance
@@ -24,6 +24,14 @@ const ENTITY_RESERVED = 1
 
 export type Signals = Table.Signals & {
   onTableCreate: Signal.Struct<Table.Struct>
+  onRegistryGrow: Signal.Struct<
+    [
+      entityGenerationIndex: SharedUintMap.Struct,
+      entityOffsetIndex: SharedUintMap.Struct,
+      entityTypeIndex: SharedUintMap.Struct,
+      tableCheck: SharedUintMap.Struct,
+    ]
+  >
 }
 
 /**
@@ -37,7 +45,7 @@ export type Struct = {
    * identifier. This lets Harmony recycle entity identifiers by invalidating
    * existing ones when the entity is destroyed.
    */
-  entityGenerationIndex: Uint32Array
+  entityGenerationIndex: SharedUintMap.Struct
 
   /**
    * The next entity to attempt to reserve when creating a new entity.
@@ -52,37 +60,46 @@ export type Struct = {
   entityLock: Lock.Struct
 
   /**
-   * The initial number of entities supported by the registry.
+   * The maximum number of entities supported by the registry.
    */
-  entityInit: number
+  entityMax: number
 
   /**
    * Maps entities to the offset of their data within their current table.
    * Entity offsets are stored in this single, shared array as opposed to
    * unique arrays per-table to save memory and simplify parallelism.
    */
-  entityOffsetIndex: Float64Array
+  entityOffsetIndex: SharedUintMap.Struct
 
   /**
    * Maps entities to a hash of their current type. Used to quickly look up an
    * entity's table.
    */
-  entityTypeIndex: Float64Array
+  entityTypeIndex: SharedUintMap.Struct
+
+  /**
+   * Multiplier used to calculate the initial component array lengths for
+   * scalar and binary components. If your game had a perfectly even
+   * distribution of entities across all archetypes (highly unlikely), you
+   * could calculate the number of entities in any given table with
+   * `roughEntityDistribution` * `entityMax`.
+   */
+  roughEntityDistribution: number
 
   /**
    * Maps identifiers to component shapes.
    */
-  shapeIndex: Schema.Struct[]
+  schemaIndex: Schema.Struct[]
 
   /**
-   * Maps type hashes to a bit that signifies whether or not a table exists
-   * for that type. Used to inform other threads of the existence of a table
+   * A set that contains type hashes for tables that definitely exist on at
+   * least one thread. Used to inform other threads of the existence of a table
    * that hasn't been shared yet.
    */
-  tableCheck: TableCheck.Struct
+  tableCheck: SharedUintMap.Struct
 
   /**
-   * Maps type hashes to an entity table.
+   * Maps type hashes to their table.
    */
   tableIndex: Table.Struct[]
 
@@ -92,7 +109,7 @@ export type Struct = {
   tableLock: Lock.Struct
 }
 
-export function make(entityInit = 1_000): Struct {
+export function make(entityInit = 1_000, roughEntityDistribution = 0.1): Struct {
   let entityLock = Lock.make(
     new SharedArrayBuffer(entityInit * Uint32Array.BYTES_PER_ELEMENT),
   )
@@ -101,22 +118,17 @@ export function make(entityInit = 1_000): Struct {
   Lock.initialize(tableLock, 0)
 
   return {
-    entityGenerationIndex: new Uint32Array(
-      new SharedArrayBuffer(entityInit * Uint32Array.BYTES_PER_ELEMENT),
-    ),
+    entityGenerationIndex: SharedUintMap.make(entityInit, 0.7, Uint32Array, Uint32Array),
     entityHead: new Uint32Array(new SharedArrayBuffer(Uint32Array.BYTES_PER_ELEMENT)),
     entityLock,
-    entityInit,
-    entityTypeIndex: new Float64Array(
-      new SharedArrayBuffer(entityInit * Float64Array.BYTES_PER_ELEMENT),
-    ),
-    entityOffsetIndex: new Float64Array(
-      new SharedArrayBuffer(entityInit * Float64Array.BYTES_PER_ELEMENT),
-    ),
-    tableCheck: TableCheck.make(1_000),
+    entityMax: entityInit,
+    entityTypeIndex: SharedUintMap.make(entityInit, 0.7, Uint32Array, Float64Array),
+    entityOffsetIndex: SharedUintMap.make(entityInit, 0.7, Uint32Array, Float64Array),
+    roughEntityDistribution,
+    schemaIndex: [],
+    tableCheck: SharedUintMap.make(1_000),
     tableIndex: [],
     tableLock,
-    shapeIndex: [],
   }
 }
 
@@ -154,7 +166,7 @@ async function findOrWaitForTableUnsafe(
 ): Promise<Table.Struct | null> {
   let table = registry.tableIndex[typeHash]
   if (table === undefined) {
-    if (TableCheck.has(registry.tableCheck, typeHash)) {
+    if (SharedUintMap.has(registry.tableCheck, typeHash)) {
       table = await waitForTableUnsafe(registry, typeHash)
     }
   }
@@ -176,10 +188,10 @@ async function findOrMakeTable<T extends Type.Struct>(
   if (table === null) {
     table = Table.make(
       type,
-      type.map(id => registry.shapeIndex[id] ?? null),
-      registry.entityInit,
+      type.map(id => registry.schemaIndex[id] ?? null),
+      registry.entityMax * registry.roughEntityDistribution,
     )
-    TableCheck.add(registry.tableCheck, typeHash)
+    SharedUintMap.set(registry.tableCheck, typeHash)
     registry.tableIndex[typeHash] = table
     Signal.dispatch(signals.onTableCreate, table)
   }
@@ -195,17 +207,20 @@ async function findOrMakeTable<T extends Type.Struct>(
 export async function makeEntity<D>(registry: Struct) {
   let id: Entity.Id | undefined
 
-  for (let i = 0; i < registry.entityInit; i++) {
+  for (let i = 0; i < registry.entityMax; i++) {
     let entityId = Atomics.add(registry.entityHead, 0, 1) + 1
     // Lock the entity state while we check if it's free
     await Lock.lockThreadAware(registry.entityLock, entityId)
     // Check if entity is available
-    let entityTypeHash = registry.entityTypeIndex[entityId]
+    let entityTypeHash = SharedUintMap.get(registry.entityTypeIndex, entityId)
     let hit = entityTypeHash === ENTITY_FREE
     if (hit) {
       // Entity is available—reserve the id
-      registry.entityTypeIndex[entityId] = ENTITY_RESERVED
-      id = Entity.pack(entityId, registry.entityGenerationIndex[entityId]) as Entity.Id
+      SharedUintMap.set(registry.entityTypeIndex, entityId, ENTITY_RESERVED)
+      id = Entity.pack(
+        entityId,
+        SharedUintMap.get(registry.entityGenerationIndex, entityId)!,
+      ) as Entity.Id
     }
     Lock.unlock(registry.entityLock)
     if (hit) break
@@ -220,7 +235,7 @@ export async function makeEntity<D>(registry: Struct) {
 }
 
 function ofGenerationUnsafe(registry: Struct, entityId: number, entityGen: number) {
-  return entityGen === registry.entityGenerationIndex[entityId]
+  return entityGen === SharedUintMap.get(registry.entityGenerationIndex, entityId)
 }
 
 function isPrimitive(typeHash: number) {
@@ -240,7 +255,7 @@ export async function has(registry: Struct, entity: Entity.Id, type: Type.Struct
   Debug.assert(ofGenerationUnsafe(registry, entityId, entityGen))
 
   let normalizedType = Type.normalize(type)
-  let typeHash = registry.entityTypeIndex[entityId]
+  let typeHash = SharedUintMap.get(registry.entityTypeIndex, entityId)!
   let match = false
 
   if (!isPrimitive(typeHash)) {
@@ -279,14 +294,14 @@ export async function add<T extends Type.Struct>(
   Debug.assert(ofGenerationUnsafe(registry, entityId, entityGen))
 
   // Get entity table (if any)
-  let prevTypeHash = registry.entityTypeIndex[entityId]
+  let prevTypeHash = SharedUintMap.get(registry.entityTypeIndex, entityId)!
   let prevTable: Table.Struct | null = isPrimitive(prevTypeHash)
     ? null
     : await findOrWaitForTableUnsafe(registry, prevTypeHash)
 
   // Produce a table from a combination of the entity's current type and newly
   // added components
-  let index = registry.entityOffsetIndex[entityId]
+  let index = SharedUintMap.get(registry.entityOffsetIndex, entityId)!
   let nextType = prevTable ? Type.and(prevTable.type, type) : type
   let nextTypeHash = Type.hash(nextType)
   let nextTable = await findOrMakeTable(registry, nextType, nextTypeHash, signals)
@@ -300,7 +315,7 @@ export async function add<T extends Type.Struct>(
   }
 
   // Update entity location
-  registry.entityTypeIndex[entityId] = nextTypeHash
+  SharedUintMap.set(registry.entityTypeIndex, entityId, nextTypeHash)
   // Release lock
   Lock.unlock(registry.entityLock)
 }
@@ -320,9 +335,11 @@ export async function destroy(registry: Struct, id: Entity.Id) {
 
   Debug.assert(ofGenerationUnsafe(registry, entityId, entityGen))
 
-  if (entityGen === registry.entityGenerationIndex[entityId]) {
-    registry.entityGenerationIndex[entityId] += 1
-    registry.entityTypeIndex[entityId] = ENTITY_FREE
+  let currentGen = SharedUintMap.get(registry.entityGenerationIndex, entityId)!
+
+  if (entityGen === currentGen) {
+    SharedUintMap.set(registry.entityGenerationIndex, entityId, currentGen + 1)
+    SharedUintMap.set(registry.entityTypeIndex, entityId, ENTITY_FREE)
   }
 
   Lock.unlock(registry.entityLock)
@@ -356,6 +373,6 @@ export async function makeSchema<S extends Schema.Shape>(
     schema = { type: Schema.Type.Binary, shape, keys: Object.keys(shape) }
   }
   let entity = await makeEntity<S>(registry)
-  registry.shapeIndex[entity] = schema
+  registry.schemaIndex[entity] = schema
   return entity
 }

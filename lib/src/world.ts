@@ -11,26 +11,36 @@ export type Struct = {
   signals: Signals
 }
 
-export function make(entityInit: number): Struct {
+enum MessageType {
+  Registry,
+  Table,
+}
+
+type MessageHeader<T extends MessageType> = { type: T; worldId: number }
+
+export type MessageRegistry = MessageHeader<MessageType.Registry> & {
+  registry: Registry.Struct
+}
+export type MessageTable = MessageHeader<MessageType.Table> & {
+  table: Table.Struct
+}
+export type Message = MessageRegistry | MessageTable
+
+let worldHead = 0
+let worlds: Struct[] = []
+
+export function make(entityInit: number, id = worldHead++): Struct {
   let world = {
+    id,
     registry: Registry.make(entityInit),
     signals: {
       onTableCreate: Signal.make(),
       onTableGrow: Signal.make(),
+      onRegistryGrow: Signal.make(),
     },
   }
 
-  globalThis.addEventListener("message", event => {
-    let message = event.data as Message
-    switch (message.type) {
-      case MessageType.Registry:
-        world.registry = message.registry
-        break
-      case MessageType.Table:
-        world.registry.tableIndex[Type.hash(message.table.type)] = message.table
-        break
-    }
-  })
+  worlds[id] = world
 
   return world
 }
@@ -48,11 +58,18 @@ export function add<T extends Type.Struct>(
   return Registry.add(world.registry, entity, type, init, world.signals)
 }
 
-enum MessageType {
-  Registry,
-  Table,
+export function onMessage(event: MessageEvent) {
+  let message = event.data as Message
+  if (!("worldId" in message)) return
+  let world = worlds[message.worldId]
+  switch (message.type) {
+    case MessageType.Registry:
+      world.registry = message.registry
+      break
+    case MessageType.Table:
+      world.registry.tableIndex[Type.hash(message.table.type)] = message.table
+      break
+  }
 }
 
-export type MessageRegistry = { type: MessageType.Registry; registry: Registry.Struct }
-export type MessageTable = { type: MessageType.Table; table: Table.Struct }
-export type Message = MessageRegistry | MessageTable
+globalThis.addEventListener("message", onMessage)

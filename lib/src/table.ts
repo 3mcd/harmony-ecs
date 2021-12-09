@@ -7,6 +7,7 @@ import * as Type from "./type"
 import * as Types from "./types"
 import * as Signal from "./signal"
 import * as ComponentSet from "./component_set"
+import * as SharedUintMap from "./shared_uint_map"
 
 export type Signals = {
   onTableGrow: Signal.Struct<Struct>
@@ -86,6 +87,11 @@ export type Struct<T extends Type.Struct = Type.Struct> = {
    * The type signature of the table.
    */
   type: T
+
+  /**
+   *
+   */
+  version: number
 }
 
 function makeTypedArrayColumn(format: Format.Struct, size: number) {
@@ -193,7 +199,7 @@ function moveUnsafe(
 
   nextTable.entities[nextIndex] = entity
   removeUnsafe(registry, prevTable, entity)
-  registry.entityOffsetIndex[entity] = nextIndex
+  SharedUintMap.set(registry.entityOffsetIndex, entity, nextIndex)
 }
 
 function removeUnsafe(registry: Registry.Struct, table: Struct, index: number) {
@@ -251,7 +257,7 @@ function removeUnsafe(registry: Registry.Struct, table: Struct, index: number) {
       }
     }
     let headEntity = table.entities[head]
-    registry.entityOffsetIndex[headEntity] = index
+    SharedUintMap.set(registry.entityOffsetIndex, headEntity, index)
     table.entities[index] = headEntity
     table.entities[head] = 0
   }
@@ -289,6 +295,7 @@ export function growUnsafe(table: Struct) {
   }
 
   table.scaleFactor *= 1.2
+  table.version++
 }
 
 export function insertUnsafe<T extends Type.Struct>(
@@ -328,7 +335,7 @@ export function insertUnsafe<T extends Type.Struct>(
     }
   }
 
-  registry.entityOffsetIndex[entity] = index
+  SharedUintMap.set(registry.entityOffsetIndex, entity, index)
 }
 
 export async function insert<T extends Type.Struct>(
@@ -478,5 +485,6 @@ export function make<T extends Type.Struct>(
     lock: Lock.make(sharedLock),
     scaleFactor: initialScaleFactor,
     type,
+    version: 0,
   }
 }
