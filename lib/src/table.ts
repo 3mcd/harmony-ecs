@@ -88,6 +88,8 @@ export type Struct<T extends Type.Struct = Type.Struct> = {
    */
   type: T
 
+  id: number
+
   /**
    *
    */
@@ -172,7 +174,7 @@ function moveUnsafe(
 
   // Grow the table if we have reached the a maximum size
   if (nextIndex === nextTable.entities.length) {
-    growUnsafe(nextTable)
+    growUnsafe(registry, nextTable)
     Signal.dispatch(signals.onTableGrow, nextTable)
   }
 
@@ -269,7 +271,7 @@ export function growArrayBufferUnsafe(array: Types.TypedArray, size: number) {
   return next
 }
 
-export function growUnsafe(table: Struct) {
+export function growUnsafe(registry: Registry.Struct, table: Struct) {
   let size = Math.ceil(table.scaleFactor * table.length[0])
 
   table.entities = new Uint32Array(growArrayBufferUnsafe(table.entities, size))
@@ -296,6 +298,8 @@ export function growUnsafe(table: Struct) {
 
   table.scaleFactor *= 1.2
   table.version++
+
+  SharedUintMap.set(registry.tableVersionIndex, table.id, table.version)
 }
 
 export function insertUnsafe<T extends Type.Struct>(
@@ -309,7 +313,7 @@ export function insertUnsafe<T extends Type.Struct>(
   let index = table.length[0]++
   // Grow the table if we have reached the a maximum size
   if (index === table.entities.length) {
-    growUnsafe(table)
+    growUnsafe(registry, table)
     Signal.dispatch(signals.onTableGrow, table)
   }
 
@@ -461,6 +465,7 @@ export function iter<T extends Type.Struct>(table: Struct<T>) {
  * Make a table.
  */
 export function make<T extends Type.Struct>(
+  id: number,
   type: T,
   layout: Layout,
   initialSize: number,
@@ -480,11 +485,12 @@ export function make<T extends Type.Struct>(
     activeIteratorCount: 0,
     columns,
     entities: new Uint32Array(sharedEntities),
+    id,
     layout,
     length: new Uint32Array(sharedLength),
     lock: Lock.make(sharedLock),
     scaleFactor: initialScaleFactor,
     type,
-    version: 0,
+    version: 1,
   }
 }

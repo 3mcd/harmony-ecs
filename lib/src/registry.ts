@@ -29,7 +29,7 @@ export type Signals = Table.Signals & {
       entityGenerationIndex: SharedUintMap.Struct,
       entityOffsetIndex: SharedUintMap.Struct,
       entityTypeIndex: SharedUintMap.Struct,
-      tableCheck: SharedUintMap.Struct,
+      tableVersionIndex: SharedUintMap.Struct,
     ]
   >
 }
@@ -92,11 +92,11 @@ export type Struct = {
   schemaIndex: Schema.Struct[]
 
   /**
-   * A set that contains type hashes for tables that definitely exist on at
-   * least one thread. Used to inform other threads of the existence of a table
-   * that hasn't been shared yet.
+   * A set that contains type hashes for tables that exist on at least one
+   * thread. Used to inform other threads of the existence of a table that
+   * hasn't been shared yet.
    */
-  tableCheck: SharedUintMap.Struct
+  tableVersionIndex: SharedUintMap.Struct
 
   /**
    * Maps type hashes to their table.
@@ -126,7 +126,7 @@ export function make(entityInit = 1_000, roughEntityDistribution = 0.1): Struct 
     entityOffsetIndex: SharedUintMap.make(entityInit, 0.7, Uint32Array, Float64Array),
     roughEntityDistribution,
     schemaIndex: [],
-    tableCheck: SharedUintMap.make(1_000),
+    tableVersionIndex: SharedUintMap.make(1_000),
     tableIndex: [],
     tableLock,
   }
@@ -136,12 +136,17 @@ export function make(entityInit = 1_000, roughEntityDistribution = 0.1): Struct 
  * Wait for a table to (magically) appear. Throw if a table doesn't show up
  * after the provided timeout.
  */
-function waitForTableUnsafe(registry: Struct, typeHash: number, timeout = 1000) {
+function waitForTableUnsafe(
+  registry: Struct,
+  typeHash: number,
+  tableVersion: number,
+  timeout = 1000,
+) {
   let startTime = performance.now()
   return new Promise<Table.Struct>(function checkTableExecutor(resolve, reject) {
     function checkTableReceived() {
       let table = registry.tableIndex[typeHash]
-      if (table !== undefined) {
+      if (table?.version === tableVersion) {
         resolve(table)
       } else {
         if (startTime - performance.now() > timeout) {
@@ -165,10 +170,9 @@ async function findOrWaitForTableUnsafe(
   typeHash: number,
 ): Promise<Table.Struct | null> {
   let table = registry.tableIndex[typeHash]
-  if (table === undefined) {
-    if (SharedUintMap.has(registry.tableCheck, typeHash)) {
-      table = await waitForTableUnsafe(registry, typeHash)
-    }
+  let tableVersion = SharedUintMap.get(registry.tableVersionIndex, typeHash)
+  if (table === undefined || table.version !== tableVersion) {
+    table = await waitForTableUnsafe(registry, typeHash, tableVersion!)
   }
   return table ?? null
 }
@@ -176,28 +180,24 @@ async function findOrWaitForTableUnsafe(
 /**
  * Locate or create a table in a thread-safe manner.
  */
-async function findOrMakeTable<T extends Type.Struct>(
+async function findOrMakeTableUnsafe<T extends Type.Struct>(
   registry: Struct,
   type: T,
   typeHash: number,
   signals: Signals,
 ) {
-  Lock.lockThreadAware(registry.tableLock)
-
   let table = await findOrWaitForTableUnsafe(registry, typeHash)
   if (table === null) {
     table = Table.make(
+      typeHash,
       type,
       type.map(id => registry.schemaIndex[id] ?? null),
       registry.entityMax * registry.roughEntityDistribution,
     )
-    SharedUintMap.set(registry.tableCheck, typeHash)
+    SharedUintMap.set(registry.tableVersionIndex, typeHash)
     registry.tableIndex[typeHash] = table
     Signal.dispatch(signals.onTableCreate, table)
   }
-
-  Lock.unlock(registry.tableLock)
-
   return table
 }
 
@@ -287,10 +287,11 @@ export async function add<T extends Type.Struct>(
   let entityId = Entity.lo(entity)
   let entityGen = Entity.hi(entity)
 
-  // Acquire a lock on the entity
+  // Acquire locks
   await Lock.lockThreadAware(registry.entityLock, entityId)
+  await Lock.lockThreadAware(registry.tableLock)
 
-  // Ensure the entity in question isn't stale
+  // Ensure the provided entity isn't stale
   Debug.assert(ofGenerationUnsafe(registry, entityId, entityGen))
 
   // Get entity table (if any)
@@ -304,7 +305,7 @@ export async function add<T extends Type.Struct>(
   let index = SharedUintMap.get(registry.entityOffsetIndex, entityId)!
   let nextType = prevTable ? Type.and(prevTable.type, type) : type
   let nextTypeHash = Type.hash(nextType)
-  let nextTable = await findOrMakeTable(registry, nextType, nextTypeHash, signals)
+  let nextTable = await findOrMakeTableUnsafe(registry, nextType, nextTypeHash, signals)
 
   // Insert or relocate entity
   let data = ComponentSet.make(type, init)
@@ -314,9 +315,13 @@ export async function add<T extends Type.Struct>(
     await Table.move(registry, entity, index, prevTable, nextTable, data, signals)
   }
 
+  // Release table lock since we're done modifying tables
+  Lock.unlock(registry.tableLock)
+
   // Update entity location
   SharedUintMap.set(registry.entityTypeIndex, entityId, nextTypeHash)
-  // Release lock
+
+  // Release entity lock
   Lock.unlock(registry.entityLock)
 }
 
@@ -327,21 +332,32 @@ export async function remove(
   signals: Signals,
 ) {}
 
-export async function destroy(registry: Struct, id: Entity.Id) {
-  let entityId = Entity.lo(id)
-  let entityGen = Entity.hi(id)
+export async function destroy(registry: Struct, entity: Entity.Id) {
+  let entityId = Entity.lo(entity)
+  let entityGen = Entity.hi(entity)
 
+  // Acquire locks
   await Lock.lockThreadAware(registry.entityLock, entityId)
+  await Lock.lockThreadAware(registry.tableLock)
 
+  // Ensure the provided entity isn't stale
   Debug.assert(ofGenerationUnsafe(registry, entityId, entityGen))
 
-  let currentGen = SharedUintMap.get(registry.entityGenerationIndex, entityId)!
+  // Update entity state
+  SharedUintMap.set(registry.entityGenerationIndex, entityId, entityGen + 1)
+  SharedUintMap.set(registry.entityTypeIndex, entityId, ENTITY_FREE)
 
-  if (entityGen === currentGen) {
-    SharedUintMap.set(registry.entityGenerationIndex, entityId, currentGen + 1)
-    SharedUintMap.set(registry.entityTypeIndex, entityId, ENTITY_FREE)
-  }
+  // Get entity table (if any)
+  let typeHash = SharedUintMap.get(registry.entityTypeIndex, entityId)!
+  let table: Table.Struct | null = isPrimitive(typeHash)
+    ? null
+    : await findOrWaitForTableUnsafe(registry, typeHash)
 
+  // Remove component data
+  if (table) await Table.remove(registry, table, entity)
+
+  // Release locks
+  Lock.unlock(registry.tableLock)
   Lock.unlock(registry.entityLock)
 }
 
