@@ -88,7 +88,6 @@ import * as Debug from "./debug"
 
 export type Struct = {
   array: Int32Array
-  index: number
 }
 
 const IS_WORKER =
@@ -99,10 +98,9 @@ const IS_WORKER =
 const NUMBYTES = 4
 const ALIGN = 4
 
-export function make(ab: ArrayBuffer, loc = 0) {
+export function make(ab: ArrayBuffer): Struct {
   return {
     array: new Int32Array(ab),
-    index: loc >>> 2,
   }
 }
 
@@ -115,9 +113,8 @@ export function initialize(lock: Struct, loc: number) {
   return loc
 }
 
-export function _lock(lock: Struct, index = lock.index) {
+export function _lock(lock: Struct, index: number = 0) {
   let { array } = lock
-  lock.index = index
   let c: number
   if ((c = Atomics.compareExchange(array, index, 0, 1)) !== 0) {
     do {
@@ -129,9 +126,8 @@ export function _lock(lock: Struct, index = lock.index) {
 
 export const lock = _lock
 
-export async function lockAsync(lock: Struct, index = lock.index) {
+export async function lockAsync(lock: Struct, index: number = 0) {
   let { array } = lock
-  lock.index = index
   let c
   if ((c = Atomics.compareExchange(array, index, 0, 1)) !== 0) {
     do {
@@ -142,16 +138,15 @@ export async function lockAsync(lock: Struct, index = lock.index) {
   }
 }
 
-export function lockThreadAware(lock: Struct, index = lock.index) {
+export function lockThreadAware(lock: Struct, index: number = 0) {
   return IS_WORKER ? _lock(lock, index) : lockAsync(lock, index)
 }
 
-export function tryLock(lock: Struct, index = lock.index) {
-  lock.index = index
+export function tryLock(lock: Struct, index: number = 0) {
   return Atomics.compareExchange(lock.array, index, 0, 1) === 0
 }
 
-export function unlock({ array, index }: Struct) {
+export function unlock({ array }: Struct, index: number = 0) {
   let v0 = Atomics.sub(array, index, 1)
   if (v0 !== 1) {
     Atomics.store(array, index, 0)

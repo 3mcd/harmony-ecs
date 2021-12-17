@@ -78,7 +78,7 @@ export function load(prev: Struct, next: Struct) {
   prev.sparse = next.sparse
 }
 
-export function get(set: Struct, key: number): DataView | undefined {
+export function getDenseOffset(set: Struct, key: number): number | undefined {
   let limit = set.sparse[LIMIT]
   let offset = calcSlot(key, limit) * 2
   let length = limit * 2
@@ -86,11 +86,7 @@ export function get(set: Struct, key: number): DataView | undefined {
   while (true) {
     let slot = SPARSE_OFFSET + (offset % length)
     if (set.sparse[slot] === key) {
-      return new DataView(
-        set.dense,
-        set.sparse[slot + 1] + DENSE_ENTRY_OFFSET,
-        set.bytesPerElement,
-      )
+      return set.sparse[slot + 1] + DENSE_ENTRY_OFFSET
     }
     offset += 2
   }
@@ -110,7 +106,7 @@ export function findFreeSlot(sparse: Uint32Array, key: number) {
   }
 }
 
-export function add(set: Struct, key: number) {
+export function get(set: Struct, key: number) {
   let size = set.sparse[SIZE]
   if (size === set.sparse[TARGET]) grow(set)
 

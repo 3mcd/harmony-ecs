@@ -7,7 +7,8 @@ import * as Type from "./type"
 import * as Types from "./types"
 import * as Signal from "./signal"
 import * as ComponentSet from "./component_set"
-import * as SharedUintMap from "./shared_uint_map"
+import * as SharedMap from "./shared_uint_map"
+import * as SharedSparse from "./shared_sparse_set"
 
 export type Signals = {
   onTableGrow: Signal.Struct<Struct>
@@ -201,11 +202,17 @@ function moveUnsafe(
 
   nextTable.entities[nextIndex] = entity
   removeUnsafe(registry, prevTable, entity)
-  SharedUintMap.set(registry.entityOffsetIndex, entity, nextIndex)
+  SharedSparse.get(registry.entityIndex, entity).setUint32(12, nextIndex)
 }
 
-function removeUnsafe(registry: Registry.Struct, table: Struct, index: number) {
+async function removeUnsafe(registry: Registry.Struct, table: Struct, index: number) {
   let head = table.length[0] - 1
+  let headEntity = table.entities[head]
+
+  await Lock.lockThreadAware(
+    registry.entityLock,
+    Registry.getEntityLockIndex(registry.entityIndex, headEntity),
+  )
 
   if (index === head) {
     // pop
@@ -258,11 +265,12 @@ function removeUnsafe(registry: Registry.Struct, table: Struct, index: number) {
         }
       }
     }
-    let headEntity = table.entities[head]
-    SharedUintMap.set(registry.entityOffsetIndex, headEntity, index)
+    SharedSparse.get(registry.entityIndex, headEntity).setUint32(12, index)
     table.entities[index] = headEntity
     table.entities[head] = 0
   }
+
+  Lock.unlock(registry.entityLock, headEntity)
 }
 
 export function growArrayBufferUnsafe(array: Types.TypedArray, size: number) {
@@ -299,7 +307,7 @@ export function growUnsafe(registry: Registry.Struct, table: Struct) {
   table.scaleFactor *= 1.2
   table.version++
 
-  SharedUintMap.set(registry.tableVersionIndex, table.id, table.version)
+  SharedMap.set(registry.tableVersionIndex, table.id, table.version)
 }
 
 export function insertUnsafe<T extends Type.Struct>(
@@ -339,7 +347,7 @@ export function insertUnsafe<T extends Type.Struct>(
     }
   }
 
-  SharedUintMap.set(registry.entityOffsetIndex, entity, index)
+  SharedSparse.get(registry.entityIndex, entity).setUint32(12, index)
 }
 
 export async function insert<T extends Type.Struct>(
