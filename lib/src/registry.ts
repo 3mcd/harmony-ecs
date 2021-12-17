@@ -7,6 +7,7 @@ import * as Schema from "./schema"
 import * as Signal from "./signal"
 import * as Table from "./table"
 import * as SharedUintMap from "./shared_uint_map"
+import * as SharedSparseSet from "./shared_sparse_set"
 import * as Type from "./type"
 
 const performance = globalThis.performance ?? require("perf_hooks").performance
@@ -39,13 +40,9 @@ export type Signals = Table.Signals & {
  */
 export type Struct = {
   /**
-   * Maps entities to their current generation. A generation is an integer
-   * assigned to an entity that is incremented each time the entity is
-   * destroyed. Generations are encoded as the high 20 bits of an entity
-   * identifier. This lets Harmony recycle entity identifiers by invalidating
-   * existing ones when the entity is destroyed.
+   * @example
    */
-  entityGenerationIndex: SharedUintMap.Struct
+  entityIndex: SharedSparseSet.Struct
 
   /**
    * The next entity to attempt to reserve when creating a new entity.
@@ -63,19 +60,6 @@ export type Struct = {
    * The maximum number of entities supported by the registry.
    */
   entityMax: number
-
-  /**
-   * Maps entities to the offset of their data within their current table.
-   * Entity offsets are stored in this single, shared array as opposed to
-   * unique arrays per-table to save memory and simplify parallelism.
-   */
-  entityOffsetIndex: SharedUintMap.Struct
-
-  /**
-   * Maps entities to a hash of their current type. Used to quickly look up an
-   * entity's table.
-   */
-  entityTypeIndex: SharedUintMap.Struct
 
   /**
    * Multiplier used to calculate the initial component array lengths for
@@ -110,20 +94,17 @@ export type Struct = {
 }
 
 export function make(entityInit = 1_000, roughEntityDistribution = 0.1): Struct {
-  let entityLock = Lock.make(
-    new SharedArrayBuffer(entityInit * Uint32Array.BYTES_PER_ELEMENT),
-  )
+  let entityIndex = SharedSparseSet.make(entityInit, 24)
+  let entityLock = Lock.make(entityIndex.dense)
   let tableLock = Lock.make(new SharedArrayBuffer(Uint32Array.BYTES_PER_ELEMENT))
   Lock.initialize(entityLock, 0)
   Lock.initialize(tableLock, 0)
 
   return {
-    entityGenerationIndex: SharedUintMap.make(entityInit, 0.7, Uint32Array, Uint32Array),
+    entityIndex,
     entityHead: new Uint32Array(new SharedArrayBuffer(Uint32Array.BYTES_PER_ELEMENT)),
     entityLock,
     entityMax: entityInit,
-    entityTypeIndex: SharedUintMap.make(entityInit, 0.7, Uint32Array, Float64Array),
-    entityOffsetIndex: SharedUintMap.make(entityInit, 0.7, Uint32Array, Float64Array),
     roughEntityDistribution,
     schemaIndex: [],
     tableVersionIndex: SharedUintMap.make(1_000),
@@ -212,15 +193,15 @@ export async function makeEntity<D>(registry: Struct) {
     // Lock the entity state while we check if it's free
     await Lock.lockThreadAware(registry.entityLock, entityId)
     // Check if entity is available
-    let entityTypeHash = SharedUintMap.get(registry.entityTypeIndex, entityId)
-    let hit = entityTypeHash === ENTITY_FREE
+    let entityTypeHash = SharedSparseSet.get(registry.entityIndex, entityId)?.getFloat64(
+      16,
+    )
+    let hit = entityTypeHash === undefined || entityTypeHash === ENTITY_FREE
     if (hit) {
       // Entity is available—reserve the id
-      SharedUintMap.set(registry.entityTypeIndex, entityId, ENTITY_RESERVED)
-      id = Entity.pack(
-        entityId,
-        SharedUintMap.get(registry.entityGenerationIndex, entityId)!,
-      ) as Entity.Id
+      let view = SharedSparseSet.add(registry.entityIndex, entityId)
+      view.setFloat64(16, ENTITY_RESERVED)
+      id = Entity.pack(entityId, view.getUint32(8)) as Entity.Id
     }
     Lock.unlock(registry.entityLock)
     if (hit) break

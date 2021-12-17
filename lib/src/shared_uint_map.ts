@@ -1,4 +1,4 @@
-import * as SharedUintMap from "./types"
+import * as Types from "./types"
 
 /**
  * A dead simple integer->number map that can be shared between worker threads.
@@ -20,24 +20,24 @@ export type Struct = {
   /**
    * A TypedArray that holds keys added to the `SharedUintMap`.
    */
-  keys: SharedUintMap.TypedArray
+  keys: Types.TypedArray
 
   /**
    * An integer that identifies the number format for keys stored in the
    * `SharedUintMap`.
    */
-  keysTypedArrayId: SharedUintMap.TypedArrayId
+  keysTypedArrayId: Types.TypedArrayId
 
   /**
    * A TypedArray that holds values added to the `SharedUintMap`.
    */
-  values: SharedUintMap.TypedArray
+  values: Types.TypedArray
 
   /**
    * An integer that identifies the number format for values stored in the
    * `SharedUintMap`.
    */
-  valuesTypedArrayId: SharedUintMap.TypedArrayId
+  valuesTypedArrayId: Types.TypedArrayId
 }
 
 const START_OFFSET = 1
@@ -46,14 +46,14 @@ const START_OFFSET = 1
  * Double the size of the `SharedUintMap`'s underlying `ArrayBuffer`
  */
 function double(map: Struct) {
-  let KeyArrayCtor = SharedUintMap.TYPED_ARRAY_CTOR_LOOKUP.get(map.valuesTypedArrayId)!
+  let KeyArrayCtor = Types.TYPED_ARRAY_CTOR_LOOKUP.get(map.valuesTypedArrayId)!
   let k1 = map.keys
   let k2 = new KeyArrayCtor(
     new SharedArrayBuffer(
       (START_OFFSET + (k1.length - START_OFFSET) * 2) * KeyArrayCtor.BYTES_PER_ELEMENT,
     ),
   )
-  let ValueArrayCtor = SharedUintMap.TYPED_ARRAY_CTOR_LOOKUP.get(map.keysTypedArrayId)!
+  let ValueArrayCtor = Types.TYPED_ARRAY_CTOR_LOOKUP.get(map.keysTypedArrayId)!
   let v1 = map.values
   let v2 = new ValueArrayCtor(
     new SharedArrayBuffer(
@@ -74,7 +74,7 @@ function double(map: Struct) {
   map.values = v2
 }
 
-function findIndex(keys: SharedUintMap.TypedArray, k: number) {
+function findIndex(keys: Types.TypedArray, k: number) {
   let length = keys.length - START_OFFSET
   let start = k % length
 
@@ -87,7 +87,7 @@ function findIndex(keys: SharedUintMap.TypedArray, k: number) {
   return 0
 }
 
-function findFreeIndex(keys: SharedUintMap.TypedArray, k: number) {
+function findFreeIndex(keys: Types.TypedArray, k: number) {
   let length = keys.length - START_OFFSET
   let start = k % length
 
@@ -101,12 +101,7 @@ function findFreeIndex(keys: SharedUintMap.TypedArray, k: number) {
   return 0
 }
 
-function insert(
-  keys: SharedUintMap.TypedArray,
-  values: SharedUintMap.TypedArray,
-  k: number,
-  v: number,
-) {
+function insert(keys: Types.TypedArray, values: Types.TypedArray, k: number, v: number) {
   let i = findFreeIndex(keys, k)
   if (i > 0) {
     keys[i] = k
@@ -170,14 +165,14 @@ export function has(map: Struct, k: number) {
 export function make(
   size: number,
   loadFactor = 0.8,
-  keyType: SharedUintMap.TypedArrayConstructor = Float64Array,
-  valueType: SharedUintMap.TypedArrayConstructor = Float64Array,
+  keyType: Types.TypedArrayConstructor = Float64Array,
+  valueType: Types.TypedArrayConstructor = Float64Array,
 ): Struct {
-  const keysTypedArrayId = SharedUintMap.TYPED_ARRAY_ID_LOOKUP.get(keyType)!
+  const keysTypedArrayId = Types.TYPED_ARRAY_ID_LOOKUP.get(keyType)!
   const keys = new keyType(
     new SharedArrayBuffer((START_OFFSET + size) * keyType.BYTES_PER_ELEMENT),
   )
-  const valuesTypedArrayId = SharedUintMap.TYPED_ARRAY_ID_LOOKUP.get(valueType)!
+  const valuesTypedArrayId = Types.TYPED_ARRAY_ID_LOOKUP.get(valueType)!
   const values = new valueType(
     new SharedArrayBuffer((START_OFFSET + size) * valueType.BYTES_PER_ELEMENT),
   )

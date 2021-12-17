@@ -5,11 +5,11 @@
 All entity state, other than component data, is stored in a `Registry`'s **entity index**. The entity index is a single `Uint32Array`, where each entity is represented as six 32-bit indices (24 bytes) laid out like so:
 
 ```
-   │┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄ entity ┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄│
+   │┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄ entity ┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄│
    ┌────────────────────────────────────────────────────────┐
-   │    id    │   lock   │    gen   │  offset  │ type(lo) │ type(hi) ┃
+   │    id    │   lock   │    gen   │  offset  │    type    ┃
    └────────────────────────────────────────────────────────┘
-     (4 bytes)  (4 bytes)  (4 bytes)  (4 bytes)  (4 bytes)  (4 bytes)
+     (4 bytes)  (4 bytes)  (4 bytes)  (4 bytes)  (8 bytes)
 ```
 
 The purpose of each index is outlined below:

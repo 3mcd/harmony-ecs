@@ -99,9 +99,9 @@ const IS_WORKER =
 const NUMBYTES = 4
 const ALIGN = 4
 
-export function make(sab: SharedArrayBuffer, loc = 0) {
+export function make(ab: ArrayBuffer, loc = 0) {
   return {
-    array: new Int32Array(sab),
+    array: new Int32Array(ab),
     index: loc >>> 2,
   }
 }
